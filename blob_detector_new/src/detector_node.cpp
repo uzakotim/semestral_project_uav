@@ -1,9 +1,11 @@
 // Copyright [2021] [Timur Uzakov]
 
 // include message filters and time sync
-// #include <message_filters/subscriber.h>
-// #include <message_filters/time_synchronizer.h>
-// #include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+
+#include <sensor_msgs/Image.h>
 
 // include CvBridge, Image Transport, Image msg
 
@@ -25,6 +27,7 @@
 using namespace sensor_msgs;
 using namespace std_msgs;
 using namespace geometry_msgs;
+using namespace message_filters;
 
 class BlobDetector 
 {
@@ -47,13 +50,21 @@ private:
     // cv::Scalar                  red_two_max = cv::Scalar(179,255,255);     //min hsv value orange
 
 
-    int                         count = 0;
+    int count = 0;
     geometry_msgs::PointStamped goal;
 
     // Output Parameters
     sensor_msgs::ImagePtr       msg_output;
-    std::string sub_topic = "";
-    std::string pub_topic = ""; 
+    std::string sub_topic_image = "";
+    std::string sub_topic_depth = "";
+    std::string pub_topic = "";
+    
+
+    message_filters::Subscriber<Image> sub_1;
+    message_filters::Subscriber<Image> sub_2;
+    typedef sync_policies::ApproximateTime<Image,Image> MySyncPolicy;
+    typedef Synchronizer<MySyncPolicy> Sync;
+    boost::shared_ptr<Sync> sync;
 
 public:
     cv::KalmanFilter KF = cv::KalmanFilter(4,2,0);
@@ -66,15 +77,27 @@ public:
         pub_topic += name;
         pub_topic +="/camera/blob";
                  
-        sub_topic += "/";
-        sub_topic += name;
-        sub_topic +="/rgbd/color/image_raw";
+        sub_topic_image += "/";
+        sub_topic_image += name;
+        sub_topic_image +="/rgbd/color/image_raw";
         
+        sub_topic_depth += "/";
+        sub_topic_depth += name;
+        sub_topic_depth +="/rgbd/color/image_raw";
         
         image_transport::ImageTransport it(*nh);
+
         pub = it.advertise(pub_topic, 1);
         pub_point   = nh->advertise<geometry_msgs::PointStamped>("/camera/goal", 1);
-        sub = it.subscribe(sub_topic, 1, &BlobDetector::image_callback,this);
+
+        sub_1.subscribe(*nh,sub_topic_image,1);
+        sub_2.subscribe(*nh,sub_topic_depth,1);
+
+        sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2));
+        sync->registerCallback(boost::bind(&BlobDetector::image_callback,this,_1,_2));
+
+        ROS_INFO("All functions initialized");
+
 
     //---Kalman Filter Parameters---->>----
         KF.transitionMatrix = (cv::Mat_<float>(4,4) << 1,0,1,0, 0,1,0,1, 0,0,1,0, 0,0,0,1);
@@ -213,7 +236,7 @@ public:
         // goal.point.z = image_depth.at<float>(statePt.x,statePt.y)/1000;
     }
     // Callback for received camera frame
-    void image_callback(const sensor_msgs::ImageConstPtr& msg)
+    void image_callback(const ImageConstPtr& msg,const ImageConstPtr& msg_depth)
     {   
         std_msgs::Header    msg_header  = msg->header;
         std::string         frame_id    = msg_header.frame_id;
@@ -222,6 +245,7 @@ public:
         PrintThatMessageWasReceived (frame_id);
         cv::Point   predictPt       = PredictUsingKalmanFilter    ();
         cv::Mat     image        = ReturnCVMatImageFromMsg     (msg);
+        cv::Mat     image_depth  = ReturnCVMatImageFromMsg     (msg_depth);
         cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
          // -->> Operations on image ----
         // 1) smoothing the image
