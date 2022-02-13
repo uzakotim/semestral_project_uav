@@ -1,9 +1,11 @@
 // Copyright [2021] [Timur Uzakov]
 
 // include message filters and time sync
-// #include <message_filters/subscriber.h>
-// #include <message_filters/time_synchronizer.h>
-// #include <message_filters/sync_policies/approximate_time.h>
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+
+#include <sensor_msgs/Image.h>
 
 // include CvBridge, Image Transport, Image msg
 
@@ -25,6 +27,7 @@
 using namespace sensor_msgs;
 using namespace std_msgs;
 using namespace geometry_msgs;
+using namespace message_filters;
 
 class BlobDetector 
 {
@@ -37,23 +40,22 @@ private:
     cv::Scalar                  orange_min = cv::Scalar(10,110,110);     //min hsv value orange
     cv::Scalar                  orange_max = cv::Scalar(27,255,255);     //max hsv value orange
     cv::Scalar                  detection_color = cv::Scalar(255,100,0);
-    
-    
-    cv::Scalar                  red_one_min = cv::Scalar(0,0,100);     //min hsv value orange
-    cv::Scalar                  red_one_max = cv::Scalar(10,255,255);     //min hsv value orange
 
-
-    // cv::Scalar                  red_two_min = cv::Scalar(160,0,0);     //min hsv value orange
-    // cv::Scalar                  red_two_max = cv::Scalar(179,255,255);     //min hsv value orange
-
-
-    int                         count = 0;
+    int count = 0;
     geometry_msgs::PointStamped goal;
 
     // Output Parameters
     sensor_msgs::ImagePtr       msg_output;
-    std::string sub_topic = "";
-    std::string pub_topic = ""; 
+    std::string sub_topic_image = "";
+    std::string sub_topic_depth = "";
+    std::string pub_topic = "";
+    
+
+    message_filters::Subscriber<Image> sub_1;
+    message_filters::Subscriber<Image> sub_2;
+    typedef sync_policies::ApproximateTime<Image,Image> MySyncPolicy;
+    typedef Synchronizer<MySyncPolicy> Sync;
+    boost::shared_ptr<Sync> sync;
 
 public:
     cv::KalmanFilter KF = cv::KalmanFilter(4,2,0);
@@ -66,23 +68,37 @@ public:
         pub_topic += name;
         pub_topic +="/camera/blob";
                  
-        sub_topic += "/";
-        sub_topic += name;
-        sub_topic +="/rgbd/color/image_raw";
+        sub_topic_image += "/";
+        sub_topic_image += name;
+        sub_topic_image +="/rgbd/color/image_raw";
         
+        sub_topic_depth += "/";
+        sub_topic_depth += name;
+        sub_topic_depth +="/rgbd/aligned_depth_to_color/image_raw";
         
         image_transport::ImageTransport it(*nh);
+
         pub = it.advertise(pub_topic, 1);
         pub_point   = nh->advertise<geometry_msgs::PointStamped>("/camera/goal", 1);
-        sub = it.subscribe(sub_topic, 1, &BlobDetector::image_callback,this);
+
+        sub_1.subscribe(*nh,sub_topic_image,1);
+        sub_2.subscribe(*nh,sub_topic_depth,1);
+
+        sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2));
+        sync->registerCallback(boost::bind(&BlobDetector::image_callback,this,_1,_2));
+
+        ROS_INFO("All functions initialized");
+
 
     //---Kalman Filter Parameters---->>----
-        KF.transitionMatrix = (cv::Mat_<float>(4,4) << 1,0,1,0, 0,1,0,1, 0,0,1,0, 0,0,0,1);
+        KF.transitionMatrix = (cv::Mat_<float>(6,6) << 1,0,0,1,0,0, 0,1,0,0,1,0, 0,0,1,0,0,1, 0,0,0,1,0,0, 0,0,0,0,1,0, 0,0,0,0,0,1 );
         measurement.setTo(cv::Scalar(0));
         KF.statePre.at<float>(0) = 0;
         KF.statePre.at<float>(1) = 0;
         KF.statePre.at<float>(2) = 0;
         KF.statePre.at<float>(3) = 0;
+        KF.statePre.at<float>(4) = 0;
+        KF.statePre.at<float>(5) = 0;
         setIdentity(KF.measurementMatrix);
         setIdentity(KF.processNoiseCov,     cv::Scalar::all(1e-4));
         setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10));
@@ -115,11 +131,11 @@ public:
         
         ROS_INFO_STREAM("[Image from: " <<frame_id<<" ]");
     }
-    cv::Point PredictUsingKalmanFilter()
+    cv::Point3f PredictUsingKalmanFilter()
     {
         // Prediction, to update the internal statePre variable -->>
         cv::Mat prediction  =   KF.predict();
-        cv::Point               predictPt(prediction.at<float>(0),prediction.at<float>(1));
+        cv::Point3f predictPt(prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2));
         return  predictPt;
         //  <<---Prediction, to update the internal statePre variable
     }
@@ -190,38 +206,39 @@ public:
         cv::minEnclosingCircle  (contour_poly, center, radius);
         return radius;
 
-    }
-    void SetMeasurement(cv::Point2f center)
+
+    void SetMeasurement(cv::Point2f center,uint8[] image_depth)
     {
         measurement.at<float>(0) = center.x;
         measurement.at<float>(1) = center.y;
+        measurement.at<float>(2) = (image_depth[(int)center.x][(int)center.y])/1000.0;
     }
-    cv::Point UpdateKalmanFilter(cv::Mat_<float>  measurement)
+    cv::Point3f UpdateKalmanFilter(cv::Mat_<float>  measurement)
     {
         // Updating Kalman Filter    
         cv::Mat     estimated = KF.correct(measurement);
-        cv::Point   statePt(estimated.at<float>(0),estimated.at<float>(1));
-        cv::Point   measPt(measurement(0),measurement(1));
+        cv::Point3f statePt(estimated.at<float>(0),estimated.at<float>(1),estimated.at<float>(2));
+        cv::Point3f measPt(measurement(0),measurement(1),measurement(2));
         return      statePt;
     }
-    void SetGoal(cv::Point statePt)
+    void SetGoal(cv::Point3f statePt)
     {
         goal.point.x = statePt.x;
         goal.point.y = statePt.y; 
-            
-        // In case of depth camera
-        // goal.point.z = image_depth.at<float>(statePt.x,statePt.y)/1000;
+        goal.point.z = statePt.z;
     }
     // Callback for received camera frame
-    void image_callback(const sensor_msgs::ImageConstPtr& msg)
+    void image_callback(const ImageConstPtr& msg,const ImageConstPtr& msg_depth)
     {   
         std_msgs::Header    msg_header  = msg->header;
         std::string         frame_id    = msg_header.frame_id;
     
         
         PrintThatMessageWasReceived (frame_id);
-        cv::Point   predictPt       = PredictUsingKalmanFilter    ();
+        cv::Point3d  predictPt       = PredictUsingKalmanFilter    ();
         cv::Mat     image        = ReturnCVMatImageFromMsg     (msg);
+        
+        ROS_INFO_STREAM(msg_depth->data);
         cv::cvtColor(image, image, cv::COLOR_BGR2RGB);
          // -->> Operations on image ----
         // 1) smoothing the image
@@ -260,9 +277,9 @@ public:
              //-<<---Blob detector
             
             // Obtaining the point from Kalman Filter
-            SetMeasurement(center);
+            SetMeasurement(center,msg_depth->data);
             
-            cv::Point statePt = UpdateKalmanFilter(measurement);
+            cv::Point3f statePt = UpdateKalmanFilter(measurement);
             
             // uncomment the following for checking estimated center coordinates
             // std::cout<<statePt<<'\n';
@@ -270,16 +287,17 @@ public:
                
             
              // Drawing Point
-            cv::circle  (drawing, statePt, int(radius), detection_color, 2 );
-            cv::circle  (drawing, statePt, 5, detection_color, 10);   
+            cv::Point pointToDraw((int)statePt.x, (int)statePt.y);
+
+            cv::circle  (drawing, pointToDraw, int(radius), detection_color, 2 );
+            cv::circle  (drawing, pointToDraw, 5, detection_color, 10);   
             
             // Setting up goal point
             SetGoal(statePt); 
-
             goal.header.stamp = ros::Time::now();
             pub_point.publish(goal);
  
-            ROS_INFO_STREAM("[Detected red object: x "<< statePt.x<<" y "<<statePt.y<<"]"); 
+            // ROS_INFO_STREAM("[Detected red object: x "<< statePt.x<<" y "<<statePt.y<<" z " <<statePt.z <<"]"); 
 
         }
 

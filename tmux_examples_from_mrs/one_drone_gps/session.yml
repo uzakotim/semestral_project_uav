@@ -37,21 +37,7 @@ windows:
       layout: tiled
       panes:
         - 'history -s rosservice call /$UAV_NAME/control_manager/goto \"goal: \[0.0, 10.0, 1.5, 0.0\]\"'
-  - rviz:
-      layout: tiled
-      panes:
-        - waitForControl; roslaunch mrs_uav_testing rviz_random_simulation.launch
-        - waitForControl; roslaunch mrs_rviz_plugins load_robot.launch
-  - easy_control:
-      layout: tiled
-      panes:
-        - waitForControl; waitForControl; roslaunch mrs_uav_general logitech_joystick.launch
-        - waitForControl; waitForControl; roslaunch mrs_rviz_plugins rviz_interface.launch
-  - layout:
-      layout: tiled
-      panes:
-        - waitForControl; sleep 3; ~/.i3/layout_manager.sh ./layout.json
   - blob_detector:
       layout: tiled
       panes:
-        - waitForOdometry; rosrun blob_detector_new detector_node $UAV_NAME
+        - waitForOdometry; rosrun blob_detector main $UAV_NAME
