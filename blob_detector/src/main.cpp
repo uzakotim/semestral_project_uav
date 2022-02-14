@@ -30,7 +30,7 @@ class BlobDetector
 private:
     ros::NodeHandle nh;
     ros::Publisher image_pub;
-    ros::Publisher human_coord_pub;
+    ros::Publisher object_coord_pub;
 
     message_filters::Subscriber<Image> image_sub;
     message_filters::Subscriber<Image> depth_sub;
@@ -43,13 +43,13 @@ private:
     std::string image_sub_topic       = "";
     std::string depth_sub_topic       = "";
     std::string image_pub_topic       = "";
-    std::string human_coord_pub_topic = "";
+    std::string object_coord_pub_topic = "";
 
 
 
-    double human_x = 0;
-    double human_y = 0;
-    double human_z = 0;
+    double object_x = 0;
+    double object_y = 0;
+    double object_z = 0;
 
     cv::Scalar                  color_min = cv::Scalar(78,158,124); //BLUE
     cv::Scalar                  color_max = cv::Scalar(138,255,255); //BLUE
@@ -60,7 +60,7 @@ private:
 public:
     // Output Parameters
     sensor_msgs::ImagePtr                          msg_output;
-    nav_msgs::Odometry                              msg_human;
+    nav_msgs::Odometry                              msg_object;
 
     int counter = 0;
 
@@ -80,9 +80,9 @@ public:
         image_pub_topic  += name;
         image_pub_topic  += "/blob_detection";
 
-        human_coord_pub_topic += "/";
-        human_coord_pub_topic += name;
-        human_coord_pub_topic += "/human/";
+        object_coord_pub_topic += "/";
+        object_coord_pub_topic += name;
+        object_coord_pub_topic += "/object/";
 
         image_sub_topic += "/";
         image_sub_topic += name;
@@ -99,7 +99,7 @@ public:
         sync->registerCallback(boost::bind(&BlobDetector::callback,this,_1,_2));
 
         image_pub         = nh.advertise<Image>(image_pub_topic, 1);
-        human_coord_pub   = nh.advertise<Odometry>(human_coord_pub_topic, 1);
+        object_coord_pub   = nh.advertise<Odometry>(object_coord_pub_topic, 1);
 
         //---Kalman Filter Parameters---->>----
         KF.transitionMatrix = (cv::Mat_<float>(6,6) <<  1,0,0,1,0,0,
@@ -291,8 +291,6 @@ public:
             center3D.z = static_cast<float>(val);
             center3D.z /= 1000.0;
 
-            // ROS_INFO_STREAM(center3D.z);
-
             // uncomment the following to draw contours exactly
               // cv::drawContours(drawing, contours, maxAreaContourId,
                 //                detectionColor ,5, cv::LINE_8, hierarchy, 0 );
@@ -317,9 +315,9 @@ public:
             cv::circle  (drawing, statePt2D, int(radius), detection_color, 2 );
             cv::circle  (drawing, statePt2D, 5, detection_color, 10);
 
-            msg_human.pose.pose.position.x = (double)statePt.x;
-            msg_human.pose.pose.position.y = (double)statePt.y;
-            msg_human.pose.pose.position.z = (double)statePt.z;
+            msg_object.pose.pose.position.x = (double)statePt.x;
+            msg_object.pose.pose.position.y = (double)statePt.y;
+            msg_object.pose.pose.position.z = (double)statePt.z;
             // Set covariance
 
             cov_matrix = KF.errorCovPost;
@@ -333,10 +331,10 @@ public:
         msg_output->header.stamp = ros::Time::now();
         image_pub.publish(msg_output);
 
-        msg_human.pose.covariance = msg_cov_array;
-        msg_human.header.frame_id = std::to_string(counter);
-        msg_human.header.stamp = ros::Time::now();
-        human_coord_pub.publish(msg_human);
+        msg_object.pose.covariance = msg_cov_array;
+        msg_object.header.frame_id = std::to_string(counter);
+        msg_object.header.stamp = ros::Time::now();
+        object_coord_pub.publish(msg_object);
 
         counter++;
     }

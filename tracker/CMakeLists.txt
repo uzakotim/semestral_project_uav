@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(blob_detector)
+project(tracker)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -123,7 +123,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 
 include_directories (
-  ${catkin_INCLUDE_DIRS} 
+  ${catkin_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
 )
 
@@ -140,11 +140,8 @@ include_directories (
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-add_executable(main src/main.cpp)
-target_link_libraries(main ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
-
-add_executable(publisher src/Camera/publisher.cpp)
-target_link_libraries(publisher ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+add_executable(tracker src/main.cpp)
+target_link_libraries(tracker ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the

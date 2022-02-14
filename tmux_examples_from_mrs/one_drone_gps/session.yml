@@ -41,3 +41,4 @@ windows:
       layout: tiled
       panes:
         - waitForOdometry; rosrun blob_detector main $UAV_NAME
+        - waitForOdometry; rosrun tracker tracker $UAV_NAME
