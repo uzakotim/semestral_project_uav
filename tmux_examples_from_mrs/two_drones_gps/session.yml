@@ -20,7 +20,7 @@ windows:
   - spawn:
       layout: tiled
       panes:
-        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[1]} ${UAV_NUMBERS[2]} $UAV_TYPE --enable-rangefinder"
+        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[1]} ${UAV_NUMBERS[2]} $UAV_TYPE --enable-rangefinder --enable-realsense-front"
   - control:
       layout: tiled
       panes:
@@ -62,3 +62,15 @@ windows:
       layout: tiled
       panes:
         - waitForOdometry; gz camera -c gzclient_camera -f "uav${UAV_NUMBERS[1]}"; history -s gz camera -c gzclient_camera -f "uav${UAV_NUMBERS[1]}"
+  - uav1:
+      layout: tiled
+      panes:
+        - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun blob_detector main $UAV_NAME
+        - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun tracker tracker $UAV_NAME
+        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun sensor_fusion main_sf $UAV_NAME1 $UAV_NAME2
+  - uav2:
+      layout: tiled
+      panes:
+        - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector main $UAV_NAME
+        - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun tracker tracker $UAV_NAME
+        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun sensor_fusion main_sf $UAV_NAME2 $UAV_NAME1

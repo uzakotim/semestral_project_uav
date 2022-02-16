@@ -126,7 +126,11 @@ public:
 int main(int argc, char** argv)
 {
     ROS_INFO("Tracker node initialized");
-    ros::init(argc, argv, "tracker_node");
+    std::string node_name = "";
+    node_name += argv[1];
+    node_name += "_tracker";
+    ros::init(argc, argv, node_name);
+    
     Tracker tr(argv[1]);
     ros::spin();
 

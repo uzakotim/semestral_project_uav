@@ -345,7 +345,11 @@ public:
 int main(int argc, char** argv)
 {
     ROS_INFO("BlobDetector node initialized");
-    ros::init(argc, argv, "uav1_blob_detector");
+    std::string node_name = "";
+    node_name += argv[1];
+    node_name += "_blob_detector";
+
+    ros::init(argc, argv, node_name);
     BlobDetector bd(argv[1]);
     ros::spin();
 
