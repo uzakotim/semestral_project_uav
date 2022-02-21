@@ -23,7 +23,6 @@ using namespace message_filters;
 using namespace geometry_msgs;
 using namespace nav_msgs;
 
-nav_msgs::Odometry msg;
 int counter{0};
 
 
@@ -31,9 +30,11 @@ class SensFuse
 {
 public:
 
+    
     ros::Publisher sf1_pub;
     ros::Publisher goal_pub;
     nav_msgs::Odometry goal_msg;
+    nav_msgs::Odometry msg;
 
     message_filters::Subscriber<Odometry> sf1_sub;
     message_filters::Subscriber<Odometry> sf2_sub;
@@ -61,7 +62,8 @@ public:
     boost::array<double, 36UL> goal_msg_cov_array;
     cv::Mat goal_cov_matrix = cv::Mat(6,6,CV_32FC1, &goal_msg_cov_array);
 
-    cv::Mat P_est, x_est, P, cur_state, R, C, C_transpose;
+    cv::Mat P_est, x_est, P, cur_state, R, C, C_transpose,S_inv, sf1_cov, sf2_cov;
+
 
     double prev_time_meas {0};
 
@@ -105,10 +107,12 @@ public:
 
 
         //    init msg
-        P_est = cv::Mat::eye(cv::Size(6,6),CV_64FC1);
+        P_est = cv::Mat::eye(cv::Size(6,6),CV_32FC1);
         x_est = (cv::Mat_<float>(6,1)<<0,0,0,0,0,0);
 
-        P     = cv::Mat::eye(cv::Size(6,6),CV_64FC1);
+        P     = cv::Mat::eye(cv::Size(6,6),CV_32FC1);
+        sf1_cov     = cv::Mat::eye(cv::Size(6,6),CV_32FC1);
+        sf2_cov     = cv::Mat::eye(cv::Size(6,6),CV_32FC1);
         // MSG
         cur_state = (cv::Mat_<float>(6,1)<<0,0,0,0,0,0);
 
@@ -150,7 +154,6 @@ public:
        cv::transpose(C,C_transpose);
        C_transpose.convertTo(C_transpose, CV_32FC1);
 
-       cov_matrix.convertTo(cov_matrix, CV_32FC1);
        x_est.convertTo(x_est, CV_32FC1);
        cur_state.convertTo(cur_state, CV_32FC1);
 
@@ -199,9 +202,9 @@ public:
         cv::Mat sf1_state = (cv::Mat_<float>(6,1) << sf1->pose.pose.position.x,sf1->pose.pose.position.y,
                                                      sf1->pose.pose.position.z, sf1->twist.twist.linear.x,
                                                      sf1->twist.twist.linear.y,sf1->twist.twist.linear.z);
+        
 
-
-        cv::Mat sf1_cov   = (cv::Mat_<double>(6,6) <<
+        sf1_cov   = (cv::Mat_<double>(6,6) <<
                                                 sf1->pose.covariance[0],
                                                 sf1->pose.covariance[1],
                                                 sf1->pose.covariance[2],
@@ -243,7 +246,7 @@ public:
                                                      sf2->pose.pose.position.z, sf2->twist.twist.linear.x,
                                                      sf2->twist.twist.linear.y,sf2->twist.twist.linear.z);
 
-        cv::Mat sf2_cov   = (cv::Mat_<double>(6,6) <<
+        sf2_cov   = (cv::Mat_<double>(6,6) <<
                                                 sf2->pose.covariance[0],
                                                 sf2->pose.covariance[1],
                                                 sf2->pose.covariance[2],
@@ -287,6 +290,8 @@ public:
         // Measurement
 
         cv::Mat state  = (cv::Mat_<float>(3,1) << pose->pose.pose.position.x, pose->pose.pose.position.y, pose->pose.pose.position.z );
+        
+        
         cv::Mat offset = (cv::Mat_<float>(3,1) << (0.2*cos(pose->pose.pose.orientation.z)),(0.2*sin(pose->pose.pose.orientation.z)),0);
         cv::Mat object_coord = (cv::Mat_<float>(3,1)<< object->pose.pose.position.x, object->pose.pose.position.y,object->pose.pose.position.z);
 
@@ -335,33 +340,48 @@ public:
 
         meas_cov.convertTo(meas_cov, CV_32FC1);
         meas_state.convertTo(meas_state, CV_32FC1);
+        
+        
         sf1_state.convertTo(sf1_state, CV_32FC1);
         sf2_state.convertTo(sf2_state, CV_32FC1);
 
         sf1_cov.convertTo(sf1_cov, CV_32FC1);
         sf2_cov.convertTo(sf2_cov, CV_32FC1);
 
+
+        
+
         cv::Mat S = C * P_est * C_transpose + C * meas_cov * C_transpose;
+        
+        cv::invert(S,S_inv,cv::DECOMP_SVD);
 
         S.convertTo(S, CV_32FC1);
+        S_inv.convertTo(S_inv,CV_32FC1);
 
-
-        cv::Mat K = P_est*C_transpose*S.inv();
-
+        cv::Mat K = P_est * C_transpose * S_inv; 
+        
 
         K.convertTo(K, CV_32FC1);
 
-        cv::Mat innovation = meas_state - C*x_est;
+        cv::Mat innovation = meas_state - C * x_est;
 
         innovation.convertTo(innovation, CV_32FC1);
         // sf1 output
-        cur_state = x_est + K*innovation;
+        
+        
+
+        cur_state = x_est + K * innovation;
 
 
-        P = cv::Mat::eye(cv::Size(6,6),CV_32FC1) - K*C*P_est;
+        P = cv::Mat::eye(cv::Size(6,6),CV_32FC1) - K * C * P_est;
+        
+        
+
         // publishing cur state
         // MSG
 
+        
+        msg.header.stamp = ros::Time::now();
         msg.pose.pose.position.x = cur_state.at<float>(0);
         msg.pose.pose.position.y = cur_state.at<float>(1);
         msg.pose.pose.position.z = cur_state.at<float>(2);
@@ -370,6 +390,9 @@ public:
         msg.twist.twist.linear.z = cur_state.at<float>(5);
         cov_matrix = P;
         msg.pose.covariance = msg_cov_array;
+        sf1_pub.publish(msg);
+
+        
 
         double time_meas = object->header.stamp.sec + pose->header.stamp.nsec/1000000000;
         double time_dif = time_meas - prev_time_meas;
@@ -380,14 +403,29 @@ public:
                                                         0,0,0,1,0,0,
                                                         0,0,0,0,1,0,
                                                         0,0,0,0,0,1);
+        cv::Mat A_transposed = (cv::Mat_<float>(6,6) << 1,0,0,0,0,0,
+                                                        0,1,0,0,0,0,
+                                                        0,0,1,0,0,0,
+                                                        0,0,0,1,0,0,
+                                                        0,0,0,0,1,0,
+                                                        0,0,0,0,0,1);
+        cv::transpose(A, A_transposed);
         A.convertTo(A, CV_32FC1);
+        A_transposed.convertTo(A_transposed, CV_32FC1);
+
 
        // Prediction
-        ROS_INFO_STREAM("test" << sf1_state<<"\n");
-        x_est = A*(sf1_state+sf2_state)/2.0;
+        x_est = A * ((sf1_state+sf2_state)/2.0);
         // ROS_INFO_STREAM("Estimated state: x "<<x_est.at<float>(0)<<" y "<<x_est.at<float>(1)<<" z "<<x_est.at<float>(2));
 
-        P_est = (A*(sf1_cov + sf2_cov)/2.0)*A.t() + R;
+        P_est = (A* ((sf1_cov + sf2_cov)/ 2.0) * A_transposed) + R;
+// Porblem here:
+        ROS_INFO_STREAM("A" << A <<std::endl;);
+        ROS_INFO_STREAM("R" << R <<std::endl;);
+        ROS_INFO_STREAM("sum cov" <<((sf1_cov + sf2_cov)/ 2.0)<<std::endl;);
+
+
+        
 
         goal_msg.pose.pose.position.x = x_est.at<float>(0);
         goal_msg.pose.pose.position.y = x_est.at<float>(1);
@@ -420,10 +458,11 @@ int main(int argc, char** argv)
     std::cout<<node_name<<std::endl;
     ros::NodeHandle nh;
     SensFuse sf(nh,argv[1], argv[2]);
+    
     while(!ros::isShuttingDown())
     {
-        msg.header.stamp = ros::Time::now();
-        sf.sf1_pub.publish(msg);
+        sf.msg.header.stamp = ros::Time::now();
+        sf.sf1_pub.publish(sf.msg);
         counter++;
         ros::spinOnce();
     }
