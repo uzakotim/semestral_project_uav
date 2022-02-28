@@ -28,144 +28,161 @@ using namespace mrs_msgs;
 
 class Formation
 {
-public:
-    ros::NodeHandle nh;
+private:
+    ros::NodeHandle nh;   
+    message_filters::Subscriber<Odometry>     sub_1;
+    message_filters::Subscriber<Odometry>     sub_2;
 
-
-    message_filters::Subscriber<Odometry> sens_fuse_sub;
-    message_filters::Subscriber<Odometry> pose_sub;
-
-    typedef sync_policies::ApproximateTime<Odometry,Odometry> MySyncPolicy;
+    typedef sync_policies::ApproximateTime<Odometry, Odometry> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
 
 
-    std::string sens_fuse_sub_topic = "";
-    std::string pose_sub_topic      = "";
-    std::string pose_pub_topic      = "";
-    std::string msg_name = "";
+    // image_transport::Publisher  pub;
+    int count = 0;
 
-    // parameters
-    float n_pos {1.2};
-    float n_neg {0.5};
-    float delta_max {0.5};
-    float delta_min {0.000001};
-    float radius {6};
-
-    ros::Publisher pose_pub;
-
-
-
-
-    //
-    cv::Mat                 tracker_vector = (cv::Mat_<float>(3,1) << 0,0,0);
-    std::vector<cv::Mat>    tracker;
-
-    cv::Mat w_prev = (cv::Mat_<float>(3,1) <<  0,0,0);
-    cv::Mat w;
-    cv::Mat master_pose;
-
+    std::string                 sub_pose_topic   = "";
+    std::string                 sub_object_topic = "";
+    std::string                 pub_pose_topic   = "";
     
-// measurements
-    int count {0};
-//
-    cv::Mat state,state_cov,object_coord,object_cov;
-
-    float cost_prev_x{0},cost_cur_x{0};
-    float cost_prev_y{0},cost_cur_y{0};
-    float cost_prev_z{0},cost_cur_z{0};
-    float cost_dif_x{0};
-    float cost_dif_y{0};
-    float cost_dif_z{0};
-    float step_x{0};
-    float step_y{0};
-    float step_z{0};
-
-
-    std::vector<float> cost_cur {0,0,0};
-    std::vector<float> cost_prev {0,0,0};
-    std::vector<float> grad_cur {0,0,0};
-    std::vector<float> grad_prev {0,0,0};
-
-    std::vector<float> delta {0.5,0.5,0.5};
-    std::vector<float> delta_prev {0.5,0.5,0.5};
-    int k{0};  //computing steps
+    cv::Scalar                  detection_color = cv::Scalar(255,100,0);
+    cv::Scalar                  goal_color = cv::Scalar(50,255,255);
     
-    float offset_x {0};
-    float offset_y {0};
-    float offset_z {0};
+    cv::Point3f                 initial_state    = cv::Point3f(0,0,1);
+    
+public:
 
-    
-    
-    Formation(char* name, float x_parameter,float y_parameter, float z_parameter)
+    double                      x_previous;
+    double                      y_previous;
+    double                      z_previous;
+
+    // -------- ROBOT POSITION PARAMETERS -------
+    // Set robot's relative to goal position
+    // here:
+    double offset_x {0};
+    double offset_y {0};
+    double offset_z {0};
+                
+    boost::array<float,4> goal = {0.0, 0.0, 0.0, 0.0};
+    cv::Mat pose_cov;
+    cv::Mat object_cov;
+
+    ros::ServiceClient client;
+    mrs_msgs::Vec4 srv;
+
+    double CostFunction(double pose_x, double x, double offset_robot_pose, cv::Mat object_cov, cv::Mat pose_cov)
+    {   
+        //  Quadratic optimization function
+        //  Offset determines a robot's position
+        return pow((x-(pose_x + offset_robot_pose)),2) + 0.5*cv::determinant(object_cov)*10e-4 + 0.5*cv::determinant(pose_cov)*10e-4;
+    }
+    double GradientFunction(double pose_x, double x, double offset_robot_pose)
     {
+        //  Gradient of the cost function
+        //  Offset determines a robot's position
+        //  Covariance is considered to be const
+        return 2*(x-(pose_x + offset_robot_pose) +  0   );
+    }
+    
+    double CalculateUpdate(double pose_x, double previous,double offset_robot_pose)
+    {
+    //  Gradient descent update
+    //  Offset determines a robot's position
+    double alpha {0.1}; //step parameter
+    double gradient;
+    double updated;
+    
+    gradient   = GradientFunction(pose_x, previous,offset_robot_pose);
+    updated    = previous - gradient*alpha;
+    return  updated;
+    }
 
-        sens_fuse_sub_topic   += "/";
-        sens_fuse_sub_topic   += name;
-        sens_fuse_sub_topic   += "/goal/";
+    double FindGoToPoint(double cost, double pose_x, double previous, double offset_robot_pose,cv::Mat obj_cov, cv::Mat pose_cov)
+    {
+        // Main loop for finding a go_to point
+        // While cost function is greated than threshold, the state will be updating for n steps
+        // In case cost function is lower than threshold, the state is preserved
+        // pose_x is the coordinate of goal
+        double alpha {0.1}; //step parameter
+        double gradient;
+        double updated {0};
+        double cost_prev {1000000000000};
+        int    number_of_steps {100};
+        while(cost>0.1)
+        {
+            gradient   = GradientFunction(pose_x, previous,offset_robot_pose);
+            updated    = previous - gradient*alpha;
+            cost       = CostFunction(pose_x, updated,offset_robot_pose,object_cov,pose_cov);
+            if (cost>cost_prev)
+            {
+                updated    = previous + gradient*alpha;
+            }
+            else {
+                updated = previous - gradient*alpha;
+            }
+            ROS_INFO_STREAM("Current Cost:" <<cost<<'\n');      
+            previous      = updated;
+            cost_prev = cost;
+        }
+        return updated;
 
-        pose_sub_topic += "/";
-        pose_sub_topic += name;
-        pose_sub_topic += "/odometry/odom_main";
+    }
 
-        pose_pub_topic+= "/";
-        pose_pub_topic += name;
-        pose_pub_topic +="/control_manager/goto";
 
-        msg_name += name;
-        msg_name += "_local_origin";
+    Formation(char* name, double x_parameter,double y_parameter, double z_parameter)
+    {
+        sub_object_topic+="/";
+        sub_object_topic+=name;
+        sub_object_topic+="/goal/";
 
-        sens_fuse_sub.subscribe (nh,sens_fuse_sub_topic,1);
-        pose_sub.subscribe      (nh,pose_sub_topic,1);
+        sub_pose_topic  +="/";
+        sub_pose_topic  +=name;
+        sub_pose_topic  +="/odometry/odom_main/";
 
-        sync.reset(new Sync(MySyncPolicy(10), sens_fuse_sub,pose_sub));
+        sub_1.subscribe(nh,sub_object_topic,1);
+        sub_2.subscribe(nh,sub_pose_topic,1);
+
+        sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2));
         sync->registerCallback(boost::bind(&Formation::callback,this,_1,_2));
+        
+         // Gradient Descent Parameters
+        x_previous = initial_state.x;
+        y_previous = initial_state.y;
+        z_previous = initial_state.z;
 
-        tracker.push_back(tracker_vector);
-        tracker.push_back(tracker_vector);
-
+        // Taking parameters to set robot position
         offset_x = x_parameter;
         offset_y = y_parameter;
         offset_z = z_parameter;
 
-        // pose_pub = nh.advertise<PointStamped> (pose_pub_topic,1);
+        pub_pose_topic+="/";
+        pub_pose_topic+=name;
+        pub_pose_topic+="/control_manager/goto/";
 
+        client = nh.serviceClient<mrs_msgs::Vec4>(pub_pose_topic);
 
-        ROS_INFO("All functions initialized");
+        ROS_INFO("Motion Controller Node Initialized Successfully"); 
     }
-//    COSTS OF DRONE
-    float CostX(cv::Mat x,cv::Mat x_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_x)
-    {
-        float resulting_cost{0};
-        resulting_cost = 0.5*std::pow((x.at<float>(0) - x_prev.at<float>(0)),2) + 0.5*std::pow((x.at<float>(0) - master_pose.at<float>(0)+offset_x),2) + 0.5*cv::determinant(state_cov)*10e-15 + 0.5*cv::determinant(object_cov)*10e-4;
-        return resulting_cost;
-    }
-    float CostY(cv::Mat x,cv::Mat x_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_y)
-    {
-        float resulting_cost{0};
-        resulting_cost = 0.5*std::pow((x.at<float>(1) - x_prev.at<float>(1)),2) + 0.5*std::pow((x.at<float>(1) - master_pose.at<float>(1)+ offset_y),2) + 0.5*cv::determinant(state_cov)*10e-15 + 0.5*cv::determinant(object_cov)*10e-4;
-        return resulting_cost;
-    }
-    float CostZ(cv::Mat x,cv::Mat x_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_z)
-    {
-        float resulting_cost{0};
-        resulting_cost = 0.5*std::pow((x.at<float>(2) - x_prev.at<float>(2)),2) + 0.5*std::pow((x.at<float>(2) - master_pose.at<float>(2)-offset_z),2) + 0.5*cv::determinant(state_cov)*10e-15 + 0.5*cv::determinant(object_cov)*10e-4;
-        return resulting_cost;
-    }
-    int sign(float x)
-    {
-        if (x > 0) return 1;
-        if (x < 0) return -1;
-        return 0;
-    }
-
     void callback(const OdometryConstPtr& object,const OdometryConstPtr& pose)
     {
-        ROS_INFO_STREAM("Synchronized\n");
+        ROS_INFO_STREAM("Synchronized\n");      
+        // uncomment for debugging
+        // std::cout<<offset_x<<'\n';
+        // std::cout<<offset_y<<'\n';
+        // std::cout<<offset_z<<'\n';
+        cv::Mat drone_position  = (cv::Mat_<float>(3,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
+        cv::Mat object_position = (cv::Mat_<float>(3,1) << object->pose.pose.position.x,object->pose.pose.position.y,object->pose.pose.position.z);
+        cv::Mat offset_vector   = (cv::Mat_<float>(3,1) << (0.2*cos(pose->pose.pose.orientation.z)),(0.2*sin(pose->pose.pose.orientation.z)),0);
 
-        // Measurements
-        state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,pose->pose.pose.orientation.z);
-        state_cov = (cv::Mat_<float>(6,6)<<
+        // ROS_INFO_STREAM("[Goal world position]");
+        // ROS_INFO_STREAM("["<<object_position.at<float>(0)<<" | "<<object_position.at<float>(1)<<" | "<<object_position.at<float>(2)<<"]");
+
+         // Gradient Descent parameters    
+        double x_updated, y_updated, z_updated;
+        double current_cost_x, current_cost_y, current_cost_z;
+
+        // Covariances 
+        pose_cov = (cv::Mat_<float>(6,6)<<
                                                 pose->pose.covariance[0],
                                                 pose->pose.covariance[1],
                                                 pose->pose.covariance[2],
@@ -204,8 +221,7 @@ public:
                                                 pose->pose.covariance[35]
                                                 );
 
-        object_coord = (cv::Mat_<float>(3,1)<< object->pose.pose.position.x,object->pose.pose.position.y,object->pose.pose.position.z);
-        object_cov   = (cv::Mat_<float>(6,6)<<   object->pose.covariance[0],
+        object_cov   = (cv::Mat_<float>(6,6)<<  object->pose.covariance[0],
                                                 object->pose.covariance[1],
                                                 object->pose.covariance[2],
                                                 object->pose.covariance[3],
@@ -242,203 +258,42 @@ public:
                                                 object->pose.covariance[34],
                                                 object->pose.covariance[35]
                                                 );
-        // ---------------
-        // Tracker
-        tracker.push_back(object_coord);
-        count++;
-
-        if (count == 2)
-        {
-            tracker.pop_back();
-            tracker.pop_back();
-        }
-        if  (count > 22)
-        {
-            float sum_x{0},sum_y{0},sum_z{0};
-            for (int i=0;i<22;i++)
-            {
-                sum_x += tracker[i].at<float>(0);
-                sum_y += tracker[i].at<float>(1);
-                sum_z += tracker[i].at<float>(2);
-            }
-            master_pose = (cv::Mat_<float>(3,1) << sum_x/22,sum_y/22,sum_z/22);
-            for (int i=0;i<10;i++)
-            {
-                tracker.pop_back();
-                count--;
-            }
-
-        }
-        // ----------------------
-        w = (cv::Mat_<float>(3,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2));
-        // RPROP
-        // goal-driven behaviour
-        if (master_pose.empty() == false)
-        {
-            ROS_INFO_STREAM(" Master at "<<master_pose);
-            // run optimization
-            // costs
-            cost_prev_x = CostX(w_prev,w_prev,master_pose,state_cov,object_cov,offset_x);
-            cost_prev_y = CostY(w_prev,w_prev,master_pose,state_cov,object_cov,offset_y);
-            cost_prev_z = CostZ(w_prev,w_prev,master_pose,state_cov,object_cov,offset_z);
-
-            cost_cur_x = CostX(w,w_prev,master_pose,state_cov,object_cov,offset_x);
-            cost_cur_y = CostY(w,w_prev,master_pose,state_cov,object_cov,offset_y);
-            cost_cur_z = CostZ(w,w_prev,master_pose,state_cov,object_cov,offset_z);
-
-            cost_cur.push_back(cost_cur_x);
-            cost_cur.push_back(cost_cur_y);
-            cost_cur.push_back(cost_cur_z);
-
-            cost_prev.push_back(cost_prev_x);
-            cost_prev.push_back(cost_prev_y);
-            cost_prev.push_back(cost_prev_z);
-
-            cost_dif_x = (cost_cur_x - cost_prev_x);
-            cost_dif_y = (cost_cur_y - cost_prev_y);
-            cost_dif_z = (cost_cur_z - cost_prev_z);
 
 
-            step_x = w.at<float>(0) - w_prev.at<float>(0);
-            step_y = w.at<float>(1) - w_prev.at<float>(1);
-            step_z = w.at<float>(2) - w_prev.at<float>(2);
-
-
-            if (std::abs(step_x) > 0.1)
-                {
-                    grad_prev[0] = cost_dif_x/step_x;
-                }
-                if (std::abs(step_y) > 0.1)
-                {
-                    grad_prev[1] = cost_dif_y/step_y;
-                }
-                if (std::abs(step_z) > 0.1)
-                {
-                    grad_prev[2] = cost_dif_z/step_z;
-                }
-
-
-            
-            // computing longer when standing
-            if ((std::abs(w.at<float>(0) - w_prev.at<float>(0))<0.2) || (std::abs(w.at<float>(1) - w_prev.at<float>(1))<0.2) || (std::abs(w.at<float>(2) - w_prev.at<float>(2))<0.2))
-            {
-                    k = 200;
-            } else  k = 50;
-            // --------------------------------------------------
-            for(int j=0;j<k;j++)
-            {
-                // Main RPROP loop
-
-                cost_cur_x = CostX(w,w_prev,master_pose,state_cov,object_cov,offset_x);
-                cost_cur_y = CostY(w,w_prev,master_pose,state_cov,object_cov,offset_y);
-                cost_cur_z = CostZ(w,w_prev,master_pose,state_cov,object_cov,offset_z);
-
-                cost_cur[0] = cost_cur_x;
-                cost_cur[1] = cost_cur_y;
-                cost_cur[2] = cost_cur_z;
-
-
-                
-                cost_dif_x = (cost_cur_x - cost_prev_x);
-                cost_dif_y = (cost_cur_y - cost_prev_y);
-                cost_dif_z = (cost_cur_z - cost_prev_z);
-
-                
-                step_x = w.at<float>(0) - w_prev.at<float>(0);
-                step_y = w.at<float>(1) - w_prev.at<float>(1);
-                step_z = w.at<float>(2) - w_prev.at<float>(2);
-
-                
-                if (std::abs(step_x) > 0.1)
-                {
-                    grad_cur[0] = cost_dif_x/step_x;
-                }
-                if (std::abs(step_y) > 0.1)
-                {
-                    grad_cur[1] = cost_dif_y/step_y;
-                }
-                if (std::abs(step_z) > 0.1)
-                {
-                    grad_cur[2] = cost_dif_z/step_z;
-                }
-                delta_prev = delta;
-                
-                /* RPROP ------------------------------------------------------------------ */             
-                for (int i = 0; i<3;i++)
-                {
-                    if ((grad_prev[i]*grad_cur[i])>0)
-                    {
-                        delta[i] = std::min(delta_prev[i]*n_pos,delta_max);
-                        w_prev.at<float>(i) = w.at<float>(i);
-                        w.at<float>(i) = w.at<float>(i) - sign(grad_cur[i])*delta[i];
-                        grad_prev[i] = grad_cur[i];
-                    } 
-                    else if ((grad_prev[i]*grad_cur[i])<0)
-                    {
-                        delta[i] = std::max(delta_prev[i]*n_neg,delta_min);
-                        if (cost_cur[i] > cost_prev[i])
-                        {
-                            w_prev.at<float>(i) = w.at<float>(i);
-                            w.at<float>(i) = w.at<float>(i)-sign(grad_prev[i])*delta_prev[i];
-                        }
-                        grad_prev[i] = 0;
-                    } else if ((grad_prev[i]*grad_cur[i])==0)
-                    {
-                        w_prev.at<float>(i) = w.at<float>(i);
-                        w.at<float>(i) = w.at<float>(i) - sign(grad_prev[i])*delta[i];
-                        grad_prev[i] = grad_cur[i];
-                    }
-                }
-                
-                /* RPROP ------------------------------------------------------------------ */
-                
-                cost_prev_x = cost_cur_x;
-                cost_prev_y = cost_cur_y;
-                cost_prev_z = cost_cur_z;
-
-                cost_prev[0] = cost_prev_x;
-                cost_prev[1] = cost_prev_y;
-                cost_prev[2] = cost_prev_z;
-            
-            }
-
-            // ----------------------------------
-            ROS_INFO_STREAM("calculated optimal x "<<w.at<float>(0));
-            ROS_INFO_STREAM("master pose x "<<master_pose.at<float>(0));
-
-            
-
-            // msg.header.frame_id = msg_name;
-            // msg.header.stamp = ros::Time::now();
-            boost::array<float,4> goal = {w.at<float>(0), w.at<float>(1), w.at<float>(2), std::round(atan2(master_pose.at<float>(1)-w.at<float>(1),master_pose.at<float>(0)-w.at<float>(0)))};
-            
+        // Calculation of cost function values
+        current_cost_x = CostFunction(object_position.at<float>(0), x_previous,offset_x,object_cov,pose_cov);
+        current_cost_y = CostFunction(object_position.at<float>(1), y_previous,offset_y,object_cov,pose_cov);
+        current_cost_z = CostFunction(object_position.at<float>(2), z_previous,offset_z,object_cov,pose_cov);
         
-            ros::ServiceClient client = nh.serviceClient<mrs_msgs::Vec4>(pose_pub_topic);
-            mrs_msgs::Vec4 srv;
+        // Determining the optimal state
+        x_updated = FindGoToPoint(current_cost_x, object_position.at<float>(0), x_previous,offset_x,object_cov,pose_cov);
+        y_updated = FindGoToPoint(current_cost_y, object_position.at<float>(1), y_previous,offset_y,object_cov,pose_cov);
+        z_updated = FindGoToPoint(current_cost_z, object_position.at<float>(2), z_previous,offset_z,object_cov,pose_cov);
 
-            srv.request.goal = goal;
-            // Optionally publish error
-            // pose_pub.publish(msg);
+        // ROS_INFO_STREAM("[GoTo Destination Position Found]");        
+        // ROS_INFO_STREAM("["<<x_updated<<" | "<<y_updated<<" | "<<z_updated<<"]");
 
-            if (client.call(srv))
-            {
-                ROS_INFO("Success");
-                std::cout<<srv.request.goal[0]<<std::endl;
-                sleep(2);
-            }
-            else 
-            {
-                ROS_ERROR("Could not publish");
-            }
-            ROS_INFO_STREAM("Point is published\n");
-            
-        }
-        else
+        ROS_INFO_STREAM(object_position.at<float>(0));
+        ROS_INFO_STREAM(x_updated);
+
+
+        srv.request.goal = boost::array<double, 4>{x_updated,y_updated,z_updated, std::round(atan2(object_position.at<float>(1)-drone_position.at<float>(1),object_position.at<float>(0)-drone_position.at<float>(0)))};
+    
+        if (client.call(srv))
         {
-            ROS_INFO_STREAM("calculating "<<count);
+            // ROS_INFO("Successfull calling service\n");
+            sleep(1);
         }
-            
-        w_prev = (cv::Mat_<float>(3,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2));
+        else 
+        {
+            ROS_ERROR("Could not publish\n");
+        }
+
+        // update
+        count++;        
+        x_previous = x_updated;
+        y_previous = y_updated;
+        z_previous = z_updated;
     }
 
 };
@@ -465,6 +320,8 @@ int main(int argc, char** argv)
     if(!(source_cmd_y>>offset_parameter_y)) return 1;
     if(!(source_cmd_z>>offset_parameter_z)) return 1;
  
+
+    ROS_INFO_STREAM  ("Instanciating Motion Controller\n");
     std::string node_name = "";
     node_name += argv[1];
     node_name += "_formation_controller";
