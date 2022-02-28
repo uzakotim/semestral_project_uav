@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   std_msgs
+  mrs_msgs
 )
 find_package(OpenCV 4.0.0 REQUIRED)
 
@@ -114,6 +115,7 @@ catkin_package(
                  std_msgs
                  cv_bridge
                  image_transport
+                 mrs_msgs
 )
 
 ###########
