@@ -70,11 +70,11 @@ public:
     ros::ServiceClient client;
     mrs_msgs::Vec4 srv;
 
-    double CostFunction(double pose_x, double x, double offset_robot_pose, cv::Mat object_cov, cv::Mat pose_cov)
+    double CostFunction(double pose_x, double x, double offset_robot_pose)
     {   
         //  Quadratic optimization function
         //  Offset determines a robot's position
-        return pow((x-(pose_x + offset_robot_pose)),2) + 0.5*cv::determinant(object_cov)*10e-4 + 0.5*cv::determinant(pose_cov)*10e-4;
+        return pow((x-(pose_x + offset_robot_pose)),2);
     }
     double GradientFunction(double pose_x, double x, double offset_robot_pose)
     {
@@ -97,7 +97,7 @@ public:
     return  updated;
     }
 
-    double FindGoToPoint(double cost, double pose_x, double previous, double offset_robot_pose,cv::Mat obj_cov, cv::Mat pose_cov)
+    double FindGoToPoint(double cost, double pose_x, double previous, double offset_robot_pose)
     {
         // Main loop for finding a go_to point
         // While cost function is greated than threshold, the state will be updating for n steps
@@ -112,7 +112,7 @@ public:
         {
             gradient   = GradientFunction(pose_x, previous,offset_robot_pose);
             updated    = previous - gradient*alpha;
-            cost       = CostFunction(pose_x, updated,offset_robot_pose,object_cov,pose_cov);
+            cost       = CostFunction(pose_x, updated,offset_robot_pose);
             if (cost>cost_prev)
             {
                 updated    = previous + gradient*alpha;
@@ -181,94 +181,15 @@ public:
         double x_updated, y_updated, z_updated;
         double current_cost_x, current_cost_y, current_cost_z;
 
-        // Covariances 
-        pose_cov = (cv::Mat_<float>(6,6)<<
-                                                pose->pose.covariance[0],
-                                                pose->pose.covariance[1],
-                                                pose->pose.covariance[2],
-                                                pose->pose.covariance[3],
-                                                pose->pose.covariance[4],
-                                                pose->pose.covariance[5],
-                                                pose->pose.covariance[6],
-                                                pose->pose.covariance[7],
-                                                pose->pose.covariance[8],
-                                                pose->pose.covariance[9],
-                                                pose->pose.covariance[10],
-                                                pose->pose.covariance[11],
-                                                pose->pose.covariance[12],
-                                                pose->pose.covariance[13],
-                                                pose->pose.covariance[14],
-                                                pose->pose.covariance[15],
-                                                pose->pose.covariance[16],
-                                                pose->pose.covariance[17],
-                                                pose->pose.covariance[18],
-                                                pose->pose.covariance[19],
-                                                pose->pose.covariance[20],
-                                                pose->pose.covariance[21],
-                                                pose->pose.covariance[22],
-                                                pose->pose.covariance[23],
-                                                pose->pose.covariance[24],
-                                                pose->pose.covariance[25],
-                                                pose->pose.covariance[26],
-                                                pose->pose.covariance[27],
-                                                pose->pose.covariance[28],
-                                                pose->pose.covariance[29],
-                                                pose->pose.covariance[30],
-                                                pose->pose.covariance[31],
-                                                pose->pose.covariance[32],
-                                                pose->pose.covariance[33],
-                                                pose->pose.covariance[34],
-                                                pose->pose.covariance[35]
-                                                );
-
-        object_cov   = (cv::Mat_<float>(6,6)<<  object->pose.covariance[0],
-                                                object->pose.covariance[1],
-                                                object->pose.covariance[2],
-                                                object->pose.covariance[3],
-                                                object->pose.covariance[4],
-                                                object->pose.covariance[5],
-                                                object->pose.covariance[6],
-                                                object->pose.covariance[7],
-                                                object->pose.covariance[8],
-                                                object->pose.covariance[9],
-                                                object->pose.covariance[10],
-                                                object->pose.covariance[11],
-                                                object->pose.covariance[12],
-                                                object->pose.covariance[13],
-                                                object->pose.covariance[14],
-                                                object->pose.covariance[15],
-                                                object->pose.covariance[16],
-                                                object->pose.covariance[17],
-                                                object->pose.covariance[18],
-                                                object->pose.covariance[19],
-                                                object->pose.covariance[20],
-                                                object->pose.covariance[21],
-                                                object->pose.covariance[22],
-                                                object->pose.covariance[23],
-                                                object->pose.covariance[24],
-                                                object->pose.covariance[25],
-                                                object->pose.covariance[26],
-                                                object->pose.covariance[27],
-                                                object->pose.covariance[28],
-                                                object->pose.covariance[29],
-                                                object->pose.covariance[30],
-                                                object->pose.covariance[31],
-                                                object->pose.covariance[32],
-                                                object->pose.covariance[33],
-                                                object->pose.covariance[34],
-                                                object->pose.covariance[35]
-                                                );
-
-
         // Calculation of cost function values
-        current_cost_x = CostFunction(object_position.at<float>(0), x_previous,offset_x,object_cov,pose_cov);
-        current_cost_y = CostFunction(object_position.at<float>(1), y_previous,offset_y,object_cov,pose_cov);
-        current_cost_z = CostFunction(object_position.at<float>(2), z_previous,offset_z,object_cov,pose_cov);
+        current_cost_x = CostFunction(object_position.at<float>(0), x_previous,offset_x);
+        current_cost_y = CostFunction(object_position.at<float>(1), y_previous,offset_y);
+        current_cost_z = CostFunction(object_position.at<float>(2), z_previous,offset_z);
         
         // Determining the optimal state
-        x_updated = FindGoToPoint(current_cost_x, object_position.at<float>(0), x_previous,offset_x,object_cov,pose_cov);
-        y_updated = FindGoToPoint(current_cost_y, object_position.at<float>(1), y_previous,offset_y,object_cov,pose_cov);
-        z_updated = FindGoToPoint(current_cost_z, object_position.at<float>(2), z_previous,offset_z,object_cov,pose_cov);
+        x_updated = FindGoToPoint(current_cost_x, object_position.at<float>(0), x_previous,offset_x);
+        y_updated = FindGoToPoint(current_cost_y, object_position.at<float>(1), y_previous,offset_y);
+        z_updated = FindGoToPoint(current_cost_z, object_position.at<float>(2), z_previous,offset_z);
 
         // ROS_INFO_STREAM("[GoTo Destination Position Found]");        
         // ROS_INFO_STREAM("["<<x_updated<<" | "<<y_updated<<" | "<<z_updated<<"]");
