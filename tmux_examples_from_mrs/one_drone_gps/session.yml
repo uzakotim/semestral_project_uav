@@ -42,3 +42,4 @@ windows:
       panes:
         - waitForOdometry; rosrun blob_detector main $UAV_NAME
         - waitForOdometry; rosrun tracker tracker $UAV_NAME
+        - waitForOdometry; rosrun formation formation_main $UAV_NAME 3.0 0.0 0.5

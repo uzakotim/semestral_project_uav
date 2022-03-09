@@ -8,6 +8,7 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <mrs_msgs/Vec4.h>
+#include <mrs_msgs/EstimatedState.h>
 // include opencv2
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -32,8 +33,9 @@ private:
     ros::NodeHandle nh;   
     message_filters::Subscriber<Odometry>     sub_1;
     message_filters::Subscriber<Odometry>     sub_2;
+    message_filters::Subscriber<EstimatedState> sub_3;
 
-    typedef sync_policies::ApproximateTime<Odometry, Odometry> MySyncPolicy;
+    typedef sync_policies::ApproximateTime<Odometry, Odometry,EstimatedState> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
 
@@ -43,6 +45,8 @@ private:
 
     std::string                 sub_pose_topic   = "";
     std::string                 sub_object_topic = "";
+    std::string                 sub_yaw_topic = "";
+
     std::string                 pub_pose_topic   = "";
     
     cv::Scalar                  detection_color = cv::Scalar(255,100,0);
@@ -55,6 +59,7 @@ public:
     double                      x_previous;
     double                      y_previous;
     double                      z_previous;
+    double                      yaw_previous;
 
     // -------- ROBOT POSITION PARAMETERS -------
     // Set robot's relative to goal position
@@ -133,22 +138,28 @@ public:
     {
         sub_object_topic+="/";
         sub_object_topic+=name;
-        sub_object_topic+="/goal/";
+        sub_object_topic+="/tracker/";
 
         sub_pose_topic  +="/";
         sub_pose_topic  +=name;
         sub_pose_topic  +="/odometry/odom_main/";
 
+        sub_yaw_topic  +="/";
+        sub_yaw_topic  +=name;
+        sub_yaw_topic  +="/odometry/heading_state_out/";
+
         sub_1.subscribe(nh,sub_object_topic,1);
         sub_2.subscribe(nh,sub_pose_topic,1);
+        sub_3.subscribe(nh,sub_yaw_topic,1);
 
-        sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2));
-        sync->registerCallback(boost::bind(&Formation::callback,this,_1,_2));
+        sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2,sub_3));
+        sync->registerCallback(boost::bind(&Formation::callback,this,_1,_2,_3));
         
          // Gradient Descent Parameters
         x_previous = initial_state.x;
         y_previous = initial_state.y;
         z_previous = initial_state.z;
+        yaw_previous = 0;
 
         // Taking parameters to set robot position
         offset_x = x_parameter;
@@ -163,56 +174,54 @@ public:
 
         ROS_INFO("Motion Controller Node Initialized Successfully"); 
     }
-    void callback(const OdometryConstPtr& object,const OdometryConstPtr& pose)
+    void callback(const OdometryConstPtr& object,const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
         // ROS_INFO_STREAM("Synchronized\n"); 
         cv::Mat drone_position  = (cv::Mat_<float>(3,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
         cv::Mat object_position = (cv::Mat_<float>(3,1) << object->pose.pose.position.x,object->pose.pose.position.y,object->pose.pose.position.z);
-            // cv::Mat offset_vector   = (cv::Mat_<float>(3,1) << (0.2*cos(pose->pose.pose.orientation.z)),(0.2*sin(pose->pose.pose.orientation.z)),0);
+        double yaw_object = std::round(atan2(object_position.at<float>(1)-drone_position.at<float>(1),object_position.at<float>(0)-drone_position.at<float>(0)));
+        // Gradient Descent parameters    
+        double x_updated, y_updated, z_updated,yaw_updated;
+        double current_cost_x, current_cost_y, current_cost_z,current_cost_yaw;
+
+        // Calculation of cost function values
+
         
-        if (object->pose.pose.position.x!=NULL) {
-            
-
-            // Gradient Descent parameters    
-            double x_updated, y_updated, z_updated;
-            double current_cost_x, current_cost_y, current_cost_z;
-
-            // Calculation of cost function values
-
-            
-            
-            current_cost_x = CostFunction(object_position.at<float>(0), x_previous,offset_x);
-            current_cost_y = CostFunction(object_position.at<float>(1), y_previous,offset_y);
-            current_cost_z = CostFunction(object_position.at<float>(2), z_previous,offset_z);
-            
-            // Determining the optimal state
-            x_updated = FindGoToPoint(current_cost_x, object_position.at<float>(0), x_previous,offset_x);
-            y_updated = FindGoToPoint(current_cost_y, object_position.at<float>(1), y_previous,offset_y);
-            z_updated = FindGoToPoint(current_cost_z, object_position.at<float>(2), z_previous,offset_z);
-
-            // ROS_INFO_STREAM("[GoTo Destination Position Found]");        
-            ROS_INFO_STREAM("[GOAL]"<<"["<<x_updated<<" | "<<y_updated<<" | "<<z_updated<<"]");
-
-
-
-            srv.request.goal = boost::array<double, 4>{x_updated,y_updated,z_updated, std::round(atan2(object_position.at<float>(1)-drone_position.at<float>(1),object_position.at<float>(0)-drone_position.at<float>(0)))};
         
-            if (client.call(srv))
-            {
-                // ROS_INFO("Successfull calling service\n");
-                sleep(1);
-            }
-            else 
-            {
-                ROS_ERROR("Could not publish\n");
-            }
+        current_cost_x = CostFunction(object_position.at<float>(0), x_previous,offset_x);
+        current_cost_y = CostFunction(object_position.at<float>(1), y_previous,offset_y);
+        current_cost_z = CostFunction(object_position.at<float>(2), z_previous,offset_z);
+        current_cost_yaw=CostFunction(yaw_object,yaw_previous,0);
+        
+        // Determining the optimal state
+        x_updated = FindGoToPoint(current_cost_x, object_position.at<float>(0), x_previous,offset_x);
+        y_updated = FindGoToPoint(current_cost_y, object_position.at<float>(1), y_previous,offset_y);
+        z_updated = FindGoToPoint(current_cost_z, object_position.at<float>(2), z_previous,offset_z);
+        yaw_updated = FindGoToPoint(current_cost_yaw, yaw_object, yaw_previous,0);
 
-            // update
-            count++;        
-            x_previous = x_updated;
-            y_previous = y_updated;
-            z_previous = z_updated;
+        // ROS_INFO_STREAM("[GoTo Destination Position Found]");        
+        // ROS_INFO_STREAM("[GOAL]"<<"["<<x_updated<<" | "<<y_updated<<" | "<<z_updated<<"]");
+
+
+
+        srv.request.goal = boost::array<double, 4>{x_updated,y_updated,z_updated,yaw_updated};
+    
+        if (client.call(srv))
+        {
+            // ROS_INFO("Successfull calling service\n");
+            sleep(1);
         }
+        else 
+        {
+            ROS_ERROR("Could not publish\n");
+        }
+
+        // update
+        count++;        
+        x_previous = x_updated;
+        y_previous = y_updated;
+        z_previous = z_updated;
+        yaw_previous = yaw_updated;
     }
 
 };

@@ -117,7 +117,7 @@ public:
     void callback(const OdometryConstPtr& object,const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
         ros::Rate rate(100);    
-        if (object->pose.pose.position.x != NULL){
+        if (object->pose.pose.position.x != 0){
             state = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
             object_coord = (cv::Mat_<float>(3,1)<< object->pose.pose.position.x,object->pose.pose.position.y,object->pose.pose.position.z);
             yaw_value = yaw->state[0];
@@ -139,12 +139,12 @@ public:
         }
         else
         {
-            yaw_value = yaw->state[0];
+            // yaw_value = yaw->state[0];
             // ROS_INFO_STREAM("[YAW]"<<yaw_value);
             ROS_INFO_STREAM("[CANNOT SEE]");
-            msg.pose.pose.position.x = NULL;
-            msg.pose.pose.position.y = NULL;
-            msg.pose.pose.position.z = NULL;
+            msg.pose.pose.position.x = 0;
+            msg.pose.pose.position.y = 0;
+            msg.pose.pose.position.z = 1;
             msg.pose.covariance = msg_cov_array;
             msg.header.frame_id = std::to_string(count);
             msg.header.stamp = ros::Time::now();
