@@ -26,7 +26,7 @@ class SensFuse
 {
 public:
 
-    
+
     ros::Publisher sf1_pub;
     ros::Publisher goal_pub;
     nav_msgs::Odometry goal_msg;
@@ -142,28 +142,46 @@ public:
 
     void callback(const OdometryConstPtr obj,const OdometryConstPtr obj_secondary, const OdometryConstPtr pose)
     {
-        ROS_INFO_STREAM("Synchronized");
-        cv::Point3f predictPt = PredictUsingKalmanFilter();
-        
-        center3D.x = (float)((obj->pose.pose.position.x + obj_secondary->pose.pose.position.x)/2.0);
-        center3D.y = (float)((obj->pose.pose.position.y + obj_secondary->pose.pose.position.y)/2.0);
-        center3D.z = (float)((obj->pose.pose.position.z + obj_secondary->pose.pose.position.z)/2.0);
-
-        SetMeasurement(center3D);
-
-        cv::Point3f statePt = UpdateKalmanFilter(measurement);
-
-        goal_msg.pose.pose.position.x = (double)statePt.x;
-        goal_msg.pose.pose.position.y = (double)statePt.y;
-        goal_msg.pose.pose.position.z = (double)statePt.z;
-
-        cov_matrix = KF.errorCovPost;
-        goal_msg.pose.covariance = msg_cov_array;
-
-        goal_msg.header.stamp = ros::Time::now();    
-        goal_pub.publish(goal_msg);
         ros::Rate rate(100);
-        rate.sleep();
+        // ROS_INFO_STREAM("Synchronized");
+
+        if ((obj->pose.pose.position.x!=NULL) || (obj_secondary->pose.pose.position.x!=NULL))
+        {
+
+            cv::Point3f predictPt = PredictUsingKalmanFilter();
+            
+            center3D.x = (float)((obj->pose.pose.position.x + obj_secondary->pose.pose.position.x)/2.0);
+            center3D.y = (float)((obj->pose.pose.position.y + obj_secondary->pose.pose.position.y)/2.0);
+            center3D.z = (float)((obj->pose.pose.position.z + obj_secondary->pose.pose.position.z)/2.0);
+
+            SetMeasurement(center3D);
+
+            cv::Point3f statePt = UpdateKalmanFilter(measurement);
+
+            goal_msg.pose.pose.position.x = (double)statePt.x;
+            goal_msg.pose.pose.position.y = (double)statePt.y;
+            goal_msg.pose.pose.position.z = (double)statePt.z;
+
+            ROS_INFO_STREAM(statePt);
+            cov_matrix = KF.errorCovPost;
+            goal_msg.pose.covariance = msg_cov_array;
+
+            goal_msg.header.stamp = ros::Time::now();    
+            goal_pub.publish(goal_msg);
+            rate.sleep();
+            // ROS_INFO_STREAM("Published goal");
+        }
+        else
+        {
+            goal_msg.pose.pose.position.x = NULL;
+            goal_msg.pose.pose.position.y = NULL;
+            goal_msg.pose.pose.position.z = NULL;
+            goal_msg.pose.covariance = msg_cov_array;
+            goal_msg.header.stamp = ros::Time::now();
+            goal_pub.publish(goal_msg);
+   
+            rate.sleep();
+        }
     }
 };
 

@@ -285,8 +285,8 @@ public:
 
             cv::Point3d center3D;
 
-            center3D.x = center.x;
-            center3D.y = center.y;
+            center3D.x = center.x; //from left to right
+            center3D.y = center.y; // from top to bottom
             unsigned short val = depth_image.at<unsigned short>(center.y, center.x);
             center3D.z = static_cast<float>(val);
             center3D.z /= 1000.0;
@@ -297,6 +297,9 @@ public:
 
             // uncomment the following for checking center coordinates
             // std::cout<<center<<'\n';
+            // std::cout<<center3D.z<<'\n';
+
+
              //-<<---Blob detector
             // Obtaining the point from Kalman Filter
             SetMeasurement(center3D);
@@ -323,20 +326,36 @@ public:
             cov_matrix = KF.errorCovPost;
 
             ROS_INFO_STREAM("[Detected blue object: z "<< center3D.z <<"]");
+            
+            cv::Mat display = cv_image + drawing;
+            msg_output= cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();
+            msg_output->header.frame_id = std::to_string(counter);
+            msg_output->header.stamp = ros::Time::now();
+            image_pub.publish(msg_output);
 
+            msg_object.pose.covariance = msg_cov_array;
+            msg_object.header.frame_id = std::to_string(counter);
+            msg_object.header.stamp = ros::Time::now();
+            object_coord_pub.publish(msg_object);
+
+            
         }
-        cv::Mat display = cv_image + drawing;
-        msg_output= cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();
-        msg_output->header.frame_id = std::to_string(counter);
-        msg_output->header.stamp = ros::Time::now();
-        image_pub.publish(msg_output);
-
-        msg_object.pose.covariance = msg_cov_array;
-        msg_object.header.frame_id = std::to_string(counter);
-        msg_object.header.stamp = ros::Time::now();
-        object_coord_pub.publish(msg_object);
-
-        counter++;
+        else    {
+            cv::Mat display = cv_image;
+            msg_output= cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();
+            msg_output->header.frame_id = std::to_string(counter);
+            msg_output->header.stamp = ros::Time::now();
+            image_pub.publish(msg_output);
+            
+            msg_object.pose.pose.position.x = NULL;
+            msg_object.pose.pose.position.y = NULL;
+            msg_object.pose.pose.position.z = NULL;
+            msg_object.pose.covariance = msg_cov_array;
+            msg_object.header.frame_id = std::to_string(counter);
+            msg_object.header.stamp = ros::Time::now();
+            object_coord_pub.publish(msg_object);
+        }
+        counter++; 
     }
 };
 

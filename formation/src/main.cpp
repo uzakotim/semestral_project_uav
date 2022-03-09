@@ -165,56 +165,54 @@ public:
     }
     void callback(const OdometryConstPtr& object,const OdometryConstPtr& pose)
     {
-        ROS_INFO_STREAM("Synchronized\n");      
-        // uncomment for debugging
-        // std::cout<<offset_x<<'\n';
-        // std::cout<<offset_y<<'\n';
-        // std::cout<<offset_z<<'\n';
+        // ROS_INFO_STREAM("Synchronized\n"); 
         cv::Mat drone_position  = (cv::Mat_<float>(3,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
         cv::Mat object_position = (cv::Mat_<float>(3,1) << object->pose.pose.position.x,object->pose.pose.position.y,object->pose.pose.position.z);
-        cv::Mat offset_vector   = (cv::Mat_<float>(3,1) << (0.2*cos(pose->pose.pose.orientation.z)),(0.2*sin(pose->pose.pose.orientation.z)),0);
-
-        // ROS_INFO_STREAM("[Goal world position]");
-        // ROS_INFO_STREAM("["<<object_position.at<float>(0)<<" | "<<object_position.at<float>(1)<<" | "<<object_position.at<float>(2)<<"]");
-
-         // Gradient Descent parameters    
-        double x_updated, y_updated, z_updated;
-        double current_cost_x, current_cost_y, current_cost_z;
-
-        // Calculation of cost function values
-        current_cost_x = CostFunction(object_position.at<float>(0), x_previous,offset_x);
-        current_cost_y = CostFunction(object_position.at<float>(1), y_previous,offset_y);
-        current_cost_z = CostFunction(object_position.at<float>(2), z_previous,offset_z);
+            // cv::Mat offset_vector   = (cv::Mat_<float>(3,1) << (0.2*cos(pose->pose.pose.orientation.z)),(0.2*sin(pose->pose.pose.orientation.z)),0);
         
-        // Determining the optimal state
-        x_updated = FindGoToPoint(current_cost_x, object_position.at<float>(0), x_previous,offset_x);
-        y_updated = FindGoToPoint(current_cost_y, object_position.at<float>(1), y_previous,offset_y);
-        z_updated = FindGoToPoint(current_cost_z, object_position.at<float>(2), z_previous,offset_z);
+        if (object->pose.pose.position.x!=NULL) {
+            
 
-        // ROS_INFO_STREAM("[GoTo Destination Position Found]");        
-        // ROS_INFO_STREAM("["<<x_updated<<" | "<<y_updated<<" | "<<z_updated<<"]");
+            // Gradient Descent parameters    
+            double x_updated, y_updated, z_updated;
+            double current_cost_x, current_cost_y, current_cost_z;
 
-        ROS_INFO_STREAM(object_position.at<float>(0));
-        ROS_INFO_STREAM(x_updated);
+            // Calculation of cost function values
+
+            
+            
+            current_cost_x = CostFunction(object_position.at<float>(0), x_previous,offset_x);
+            current_cost_y = CostFunction(object_position.at<float>(1), y_previous,offset_y);
+            current_cost_z = CostFunction(object_position.at<float>(2), z_previous,offset_z);
+            
+            // Determining the optimal state
+            x_updated = FindGoToPoint(current_cost_x, object_position.at<float>(0), x_previous,offset_x);
+            y_updated = FindGoToPoint(current_cost_y, object_position.at<float>(1), y_previous,offset_y);
+            z_updated = FindGoToPoint(current_cost_z, object_position.at<float>(2), z_previous,offset_z);
+
+            // ROS_INFO_STREAM("[GoTo Destination Position Found]");        
+            ROS_INFO_STREAM("[GOAL]"<<"["<<x_updated<<" | "<<y_updated<<" | "<<z_updated<<"]");
 
 
-        srv.request.goal = boost::array<double, 4>{x_updated,y_updated,z_updated, std::round(atan2(object_position.at<float>(1)-drone_position.at<float>(1),object_position.at<float>(0)-drone_position.at<float>(0)))};
-    
-        if (client.call(srv))
-        {
-            // ROS_INFO("Successfull calling service\n");
-            sleep(1);
+
+            srv.request.goal = boost::array<double, 4>{x_updated,y_updated,z_updated, std::round(atan2(object_position.at<float>(1)-drone_position.at<float>(1),object_position.at<float>(0)-drone_position.at<float>(0)))};
+        
+            if (client.call(srv))
+            {
+                // ROS_INFO("Successfull calling service\n");
+                sleep(1);
+            }
+            else 
+            {
+                ROS_ERROR("Could not publish\n");
+            }
+
+            // update
+            count++;        
+            x_previous = x_updated;
+            y_previous = y_updated;
+            z_previous = z_updated;
         }
-        else 
-        {
-            ROS_ERROR("Could not publish\n");
-        }
-
-        // update
-        count++;        
-        x_previous = x_updated;
-        y_previous = y_updated;
-        z_previous = z_updated;
     }
 
 };

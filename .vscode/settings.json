@@ -2,6 +2,10 @@
     "files.associations": {
         "ostream": "cpp",
         "*.tcc": "cpp",
-        "bit": "cpp"
+        "bit": "cpp",
+        "unordered_map": "cpp",
+        "unordered_set": "cpp",
+        "cmath": "cpp",
+        "complex": "cpp"
     }
 }
