@@ -27,6 +27,8 @@ using namespace geometry_msgs;
 using namespace nav_msgs;
 using namespace mrs_msgs;
 
+#define CONTROLLER_PERIOD 0.1
+
 class Formation
 {
 public:
@@ -38,36 +40,34 @@ public:
     typedef sync_policies::ApproximateTime<Odometry, Odometry,EstimatedState> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
-
+    
+    cv::Point3f                 initial_state    = cv::Point3f(0,0,1);
+    //------------TOPICS------------------------------
+    //subscribers
     std::string                 sub_pose_topic   = "";
     std::string                 sub_object_topic = "";
     std::string                 sub_yaw_topic = "";
-
+    //publishers
     std::string                 pub_pose_topic   = "";
-    
-    cv::Scalar                  detection_color = cv::Scalar(255,100,0);
-    cv::Scalar                  goal_color = cv::Scalar(50,255,255);
-    
-    cv::Point3f                 initial_state    = cv::Point3f(0,0,1);
-    
-    // parameters
-    double n_pos {1.2};
-    double n_neg {0.5};
-    double delta_max {0.5};
-    double delta_min {0.000001};
-    double radius {6};
-    // 
-    cv::Mat                 tracker_vector = (cv::Mat_<float>(3,1) << 0,0,0);
-    std::vector<cv::Mat>    tracker;
+
+
+    //------------OPTIMIZATION-PARAMETERS----------------
+
+    int count {0};
+    cv::Mat state,state_cov,object_coord,object_cov;
+    cv::Mat tracker_vector = (cv::Mat_<float>(3,1) << 0,0,0);
+    std::vector<cv::Mat> tracker;
     
     cv::Mat w_prev = (cv::Mat_<float>(3,1) <<  0,0,0);
     cv::Mat w;
     cv::Mat master_pose;
 
-// measurements
-    int count {0};
-    cv::Mat state,state_cov,object_coord,object_cov;
-
+    // parameters
+    double n_pos {1.2};
+    double n_neg {0.5};
+    double delta_max {0.5};
+    double delta_min {0.000001};
+   
     double cost_prev_x{0},cost_cur_x{0};
     double cost_prev_y{0},cost_cur_y{0};
     double cost_prev_z{0},cost_cur_z{0};
@@ -84,7 +84,6 @@ public:
     std::vector<double> grad_cur {0,0,0};
     std::vector<double> grad_prev {0,0,0};
 
-
     std::vector<double> delta {0.5,0.5,0.5};
     std::vector<double> delta_prev {0.5,0.5,0.5};
 
@@ -93,22 +92,17 @@ public:
     double                      x_previous;
     double                      y_previous;
     double                      z_previous;
-    double                      yaw_previous;
+
     
     double                      offset_x;
     double                      offset_y;
     double                      offset_z;
     
-
-    // -------- ROBOT POSITION PARAMETERS -------
-                
+    // ---------OUTPUT MSG-----------------------------------
     boost::array<float,4> goal = {0.0, 0.0, 0.0, 0.0};
-    cv::Mat pose_cov;
-
     ros::ServiceClient client;
     mrs_msgs::Vec4 srv;
-    cv::Mat stored_position;
-    //    COSTS:
+    //--------  COST FUNCTIONS ------------------------------
     double CostX(cv::Mat x,cv::Mat x_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,double offset_x)
     {
         double resulting_cost{0};
@@ -137,6 +131,8 @@ public:
 
     Formation(char* name, double x_parameter,double y_parameter, double z_parameter)
     {
+        //------------TOPICS-DECLARATIONS----------------
+
         sub_object_topic+="/";
         sub_object_topic+=name;
         sub_object_topic+="/tracker/";
@@ -149,12 +145,18 @@ public:
         sub_yaw_topic  +=name;
         sub_yaw_topic  +="/odometry/heading_state_out/";
 
+        pub_pose_topic+="/";
+        pub_pose_topic+=name;
+        pub_pose_topic+="/control_manager/goto/";
+
         sub_1.subscribe(nh,sub_object_topic,1);
         sub_2.subscribe(nh,sub_pose_topic,1);
         sub_3.subscribe(nh,sub_yaw_topic,1);
 
         sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2,sub_3));
         sync->registerCallback(boost::bind(&Formation::callback,this,_1,_2,_3));
+                
+        client = nh.serviceClient<mrs_msgs::Vec4>(pub_pose_topic);
         
          // Gradient Descent Parameters
         x_previous = initial_state.x;
@@ -166,14 +168,8 @@ public:
         offset_y = y_parameter;
         offset_z = z_parameter;
 
-        pub_pose_topic+="/";
-        pub_pose_topic+=name;
-        pub_pose_topic+="/control_manager/goto/";
-
         tracker.push_back(tracker_vector);
         tracker.push_back(tracker_vector);
-
-        client = nh.serviceClient<mrs_msgs::Vec4>(pub_pose_topic);
 
         ROS_INFO("Motion Controller Node Initialized Successfully"); 
     }
@@ -181,8 +177,8 @@ public:
     {
         ROS_INFO("Synchronized\n");
 
-        if (object->pose.pose.position.x != NULL){
-            // Measurements
+        if (object->pose.pose.position.x != '\0'){
+            //------------MEASUREMENTS-----------------------------
             state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,yaw->state[0]);
             state_cov = (cv::Mat_<double>(6,6)<<
                                                     pose->pose.covariance[0],
@@ -261,8 +257,7 @@ public:
                                                     object->pose.covariance[34],
                                                     object->pose.covariance[35]
                                                     );
-            // ---------------
-            // Tracker
+            //------------TRACKER----------------
             tracker.push_back(object_coord);
             count++;
 
@@ -288,9 +283,9 @@ public:
                 }
 
             }
-            // ----------------------
+            
             w = (cv::Mat_<float>(3,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2)); 
-            // RPROP
+            //------------RPROP----------------
             // goal-driven behaviour
             if (master_pose.empty() == false)
             {
@@ -322,9 +317,6 @@ public:
                 step_y = w.at<float>(1) - w_prev.at<float>(1);
                 step_z = w.at<float>(2) - w_prev.at<float>(2);
 
-
-                // ROS_INFO_STREAM("[STEPS]:"<<step_x<<' '<<step_y<<' '<<step_z);
-
                 grad_prev.push_back(cost_dif_x/step_x);
                 grad_prev.push_back(cost_dif_y/step_y);
                 grad_prev.push_back(cost_dif_z/step_z);
@@ -340,7 +332,6 @@ public:
                 for(int j=0;j<k;j++)
                 {
                     // Main RPROP loop
-                
                     cost_cur_x = CostX(w,w_prev,master_pose,state_cov,object_cov,offset_x);
                     cost_cur_y = CostY(w,w_prev,master_pose,state_cov,object_cov,offset_y);
                     cost_cur_z = CostZ(w,w_prev,master_pose,state_cov,object_cov,offset_z);
@@ -357,13 +348,10 @@ public:
                     step_y = w.at<float>(1) - w_prev.at<float>(1);
                     step_z = w.at<float>(2) - w_prev.at<float>(2);
                     
-                    // ROS_INFO_STREAM("[GRADs]:"<<cost_dif_x/step_x<<' '<<cost_dif_y/step_y<<' '<<cost_dif_z/step_z);
-                    
                     grad_cur[0] = cost_dif_x/step_x;
                     grad_cur[1] = cost_dif_y/step_y;
                     grad_cur[2] = cost_dif_z/step_z;
 
-                    // WORKS TILL HERE
                     delta_prev = delta; 
                     for (int i = 0; i<3;i++)
                     {
@@ -405,7 +393,7 @@ public:
                 if (client.call(srv))
                 {
                     // ROS_INFO("Successfull calling service\n");
-                    sleep(0.1);
+                    sleep(CONTROLLER_PERIOD);
                 }
                 else 
                 {
@@ -415,7 +403,7 @@ public:
             }
             else
             {
-                ROS_INFO_STREAM("calculating "<<count);
+                ROS_INFO_STREAM("[CALCULATING]:"<<count);
             }
 
             w_prev = (cv::Mat_<float>(3,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2)); 
@@ -455,7 +443,6 @@ int main(int argc, char** argv)
     
     ros::init(argc, argv, node_name);
     Formation fc(argv[1],offset_parameter_x,offset_parameter_y,offset_parameter_z);
-    ROS_INFO("Formation node initialized");
     ros::spin();
 
     return 0;

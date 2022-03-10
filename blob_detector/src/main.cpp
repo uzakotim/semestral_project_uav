@@ -295,11 +295,6 @@ public:
               // cv::drawContours(drawing, contours, maxAreaContourId,
                 //                detectionColor ,5, cv::LINE_8, hierarchy, 0 );
 
-            // uncomment the following for checking center coordinates
-            // std::cout<<center<<'\n';
-            // std::cout<<center3D.z<<'\n';
-
-
              //-<<---Blob detector
             // Obtaining the point from Kalman Filter
             SetMeasurement(center3D);
@@ -347,9 +342,9 @@ public:
             msg_output->header.stamp = ros::Time::now();
             image_pub.publish(msg_output);
             
-            msg_object.pose.pose.position.x = NULL;
-            msg_object.pose.pose.position.y = NULL;
-            msg_object.pose.pose.position.z = NULL;
+            msg_object.pose.pose.position.x = '\0';
+            msg_object.pose.pose.position.y = '\0';
+            msg_object.pose.pose.position.z = '\0';
             msg_object.pose.covariance = msg_cov_array;
             msg_object.header.frame_id = std::to_string(counter);
             msg_object.header.stamp = ros::Time::now();

@@ -18,7 +18,8 @@
 #include <ros/ros.h>
 #include <cmath>
 #define CAMERA_OFFSET 0.2
-
+#define IMAGE_WIDTH 1280
+#define IMAGE_HEIGHT 720
 
 using namespace sensor_msgs;
 using namespace message_filters;
@@ -37,20 +38,42 @@ private:
     message_filters::Subscriber<Odometry> object_sub;
     message_filters::Subscriber<Odometry> pose_sub;
     message_filters::Subscriber<EstimatedState> yaw_sub;
+
     typedef sync_policies::ApproximateTime<Odometry,Odometry,EstimatedState> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
 
-    std::string object_sub_topic = "";
-    std::string pose_sub_topic  = "";
-    std::string yaw_sub_topic  = "";
-    std::string object_pub_topic = "";
+    std::string object_sub_topic    = "";
+    std::string pose_sub_topic      = "";
+    std::string yaw_sub_topic       = "";
+    std::string object_pub_topic    = "";
 
     Odometry msg;
+
     int count {0};
+
 public:
+    cv::Mat shift_to_center     = (cv::Mat_<float>(3,1) << IMAGE_WIDTH/2,IMAGE_HEIGHT/2,0); //!TODO! Check image size
+ 
+    cv::Mat scale_matrix        = (cv::Mat_<float>(3,3) <<  0.005,0,0, 
+                                                            0,-0.005,0, 
+                                                            0,0,1); //x same, y flip and rescale
+ 
+    cv::Mat RotationMatrix      = (cv::Mat_<float>(3,3) <<  1,0,0,
+                                                            0,0,1,
+                                                            0,1,0); //changing z and y axis
+ 
+    cv::Mat RotationMatrix2     = (cv::Mat_<float>(3,3) <<  0,1,0, 
+                                                            1,0,0, 
+                                                            0,0,1) ; 
+ 
+    cv::Mat RotationMatrix3     = (cv::Mat_<float>(3,3) <<  1,0,0,
+                                                            0,-1,0,
+                                                            0,0,1) ;
+    
 
     cv::Mat state, object_coord,object_cov,object_world;
+    
     boost::array<double, 36UL> msg_cov_array;
     cv::Mat cov_matrix = cv::Mat(6,6,CV_32F, &msg_cov_array);
 
@@ -91,41 +114,30 @@ public:
 
     cv::Mat ObjectCoordinateToWorld(cv::Mat object_position,float yaw_value,cv::Mat drone_position,cv::Mat offset_vector)
     {
-        cv::Mat shift_to_center     = (cv::Mat_<float>(3,1) << 1280/2,720/2,0); //!TODO! Check image size
+        cv::Mat shifted_and_scaled  = scale_matrix * (object_position - shift_to_center);   
+        cv::Mat RotationMatrix4     = (cv::Mat_<float>(3,3) << cos(yaw_value),-sin(yaw_value),0, sin(yaw_value),cos(yaw_value),0,  0,0,1) ;        
 
-        cv::Mat scale_matrix        = (cv::Mat_<float>(3,3) << 0.005,0,0,  0,-0.005,0,     0,0,1); //x same, y flip and rescale
-
-
-
-        cv::Mat shifted_and_scaled  = scale_matrix * (object_position - shift_to_center);
-        cv::Mat RotationMatrix      = (cv::Mat_<float>(3,3) << 1,0,0, 0,0,1 ,0,1,0); //changing z and y axis
-        cv::Mat RotationMatrix2     = (cv::Mat_<float>(3,3) << 0,1,0, 1,0,0, 0,0,1) ; 
-        cv::Mat RotationMatrix3     = (cv::Mat_<float>(3,3) << 1,0,0, 0,-1,0, 0,0,1) ;
-        cv::Mat RotationMatrix4     = (cv::Mat_<float>(3,3) << cos(yaw_value),-sin(yaw_value),0, sin(yaw_value),cos(yaw_value),0,  0,0,1) ;
-
-        
         cv::Mat not_rot_vector      = RotationMatrix3 * RotationMatrix2 * RotationMatrix * shifted_and_scaled;
         cv::Mat rotated_vector      = RotationMatrix4 * not_rot_vector;
         cv::Mat point = drone_position + rotated_vector + offset_vector;
-   
-        // ROS_INFO_STREAM("[DRONE]"<<drone_position); 
-        // ROS_INFO_STREAM("[NOT ROTATED]"<<not_rot_vector); 
-        // ROS_INFO_STREAM("[ROTATED]" << rotated_vector);
+
         return point;
     }
 
     void callback(const OdometryConstPtr& object,const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
         ros::Rate rate(100);    
-        if (object->pose.pose.position.x != NULL){
-            state = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
-            object_coord = (cv::Mat_<float>(3,1)<< object->pose.pose.position.x,object->pose.pose.position.y,object->pose.pose.position.z);
-            yaw_value = yaw->state[0];
-            ROS_INFO_STREAM("[YAW]"<<yaw_value);
-            cv::Mat offset = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
-
+        if (object->pose.pose.position.x != '\0'){
+            
+            //---------------------MEASUREMENTS---------------------------
+            state           = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
+            object_coord    = (cv::Mat_<float>(3,1)<< object->pose.pose.position.x,object->pose.pose.position.y,object->pose.pose.position.z);
+            yaw_value       = yaw->state[0];
+            
+            //---------------------CALCULATIONS---------------------------
+            cv::Mat offset  = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
             object_world = ObjectCoordinateToWorld(object_coord,yaw_value,state,offset);
-
+            // ---------------------MSG-----------------------------------------------
             msg.header.frame_id = count;
             msg.header.stamp = ros::Time::now();
             msg.pose.pose.position.x = object_world.at<float>(0);
@@ -139,12 +151,11 @@ public:
         }
         else
         {
-            yaw_value = yaw->state[0];
-            ROS_INFO_STREAM("[YAW]"<<yaw_value);
+            //---------------------IF-UNDETECTED--------------------------
             ROS_INFO_STREAM("[CANNOT SEE]");
-            msg.pose.pose.position.x = NULL;
-            msg.pose.pose.position.y = NULL;
-            msg.pose.pose.position.z = NULL;
+            msg.pose.pose.position.x = '\0';
+            msg.pose.pose.position.y = '\0';
+            msg.pose.pose.position.z = '\0';
             msg.pose.covariance = msg_cov_array;
             msg.header.frame_id = std::to_string(count);
             msg.header.stamp = ros::Time::now();
