@@ -129,24 +129,31 @@ public:
     }
 
 
-    Formation(char* name, double x_parameter,double y_parameter, double z_parameter)
+    Formation(char** argv, double x_parameter,double y_parameter, double z_parameter)
     {
         //------------TOPICS-DECLARATIONS----------------
-
-        sub_object_topic+="/";
-        sub_object_topic+=name;
-        sub_object_topic+="/tracker/";
+        if (argv[5] != NULL) 
+        {
+            sub_object_topic+="/";
+            sub_object_topic+=argv[4];
+            sub_object_topic+="/goal/";
+        } else
+        {
+            sub_object_topic+="/";
+            sub_object_topic+=argv[4];
+            sub_object_topic+="/tracker/";
+        }
 
         sub_pose_topic  +="/";
-        sub_pose_topic  +=name;
+        sub_pose_topic  +=argv[4];
         sub_pose_topic  +="/odometry/odom_main/";
 
         sub_yaw_topic  +="/";
-        sub_yaw_topic  +=name;
+        sub_yaw_topic  +=argv[4];
         sub_yaw_topic  +="/odometry/heading_state_out/";
 
         pub_pose_topic+="/";
-        pub_pose_topic+=name;
+        pub_pose_topic+=argv[4];
         pub_pose_topic+="/control_manager/goto/";
 
         sub_1.subscribe(nh,sub_object_topic,1);
@@ -418,14 +425,14 @@ public:
 int main(int argc, char** argv)
 {
     
-    if(argv[1] == NULL) 
+    if(argv[4] == NULL) 
     {
-        std::cerr<<"Please, enter the drone position around the goal, in the following form: UAV_NAME x y z"<<'\n';
+        std::cerr<<"Please, enter the drone position around the goal, in the following form: x y z UAV_NAME ..."<<'\n';
         return 1; 
     }
-    std::istringstream              source_cmd_x(argv[2]);
-    std::istringstream              source_cmd_y(argv[3]);
-    std::istringstream              source_cmd_z(argv[4]);
+    std::istringstream              source_cmd_x(argv[1]);
+    std::istringstream              source_cmd_y(argv[2]);
+    std::istringstream              source_cmd_z(argv[3]);
     
     float offset_parameter_x;
     float offset_parameter_y;
@@ -438,11 +445,11 @@ int main(int argc, char** argv)
 
     ROS_INFO_STREAM  ("Instanciating Motion Controller\n");
     std::string node_name = "";
-    node_name += argv[1];
+    node_name += argv[4];
     node_name += "_formation_controller";
     
     ros::init(argc, argv, node_name);
-    Formation fc(argv[1],offset_parameter_x,offset_parameter_y,offset_parameter_z);
+    Formation fc(argv,offset_parameter_x,offset_parameter_y,offset_parameter_z);
     ros::spin();
 
     return 0;

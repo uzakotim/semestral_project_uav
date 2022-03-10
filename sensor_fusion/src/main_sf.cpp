@@ -35,10 +35,10 @@ public:
     message_filters::Subscriber<Odometry> obj_secondary_sub;
     message_filters::Subscriber<Odometry> pose_sub;
 
-    std::string obj_topic = "";
-    std::string obj_topic_secondary="";
-    std::string pose_topic   = "";
-    std::string goal_topic   = "";
+    std::string obj_topic           = "";
+    std::string obj_topic_secondary ="";
+    std::string pose_topic          = "";
+    std::string goal_topic          = "";
 
 
     typedef sync_policies::ApproximateTime<Odometry,Odometry,Odometry> MySyncPolicy;
@@ -134,7 +134,6 @@ public:
     {
         // Updating Kalman Filter
         cv::Mat       estimated = KF.correct(measurement);
-        // cv::Point3f statePt(0,0,0);
         cv::Point3f   statePt(estimated.at<float>(0),estimated.at<float>(1),estimated.at<float>(2));
         cv::Point3f   measPt(measurement(0),measurement(1),measurement(2));
         return      statePt;
@@ -143,9 +142,9 @@ public:
     void callback(const OdometryConstPtr obj,const OdometryConstPtr obj_secondary, const OdometryConstPtr pose)
     {
         ros::Rate rate(100);
-        // ROS_INFO_STREAM("Synchronized");
+        ROS_INFO_STREAM("Synchronized");
 
-        if ((obj->pose.pose.position.x!=NULL) || (obj_secondary->pose.pose.position.x!=NULL))
+        if ((obj->pose.pose.position.x!='\0') || (obj_secondary->pose.pose.position.x!='\0'))
         {
 
             cv::Point3f predictPt = PredictUsingKalmanFilter();
@@ -169,13 +168,12 @@ public:
             goal_msg.header.stamp = ros::Time::now();    
             goal_pub.publish(goal_msg);
             rate.sleep();
-            // ROS_INFO_STREAM("Published goal");
         }
         else
         {
-            goal_msg.pose.pose.position.x = NULL;
-            goal_msg.pose.pose.position.y = NULL;
-            goal_msg.pose.pose.position.z = NULL;
+            goal_msg.pose.pose.position.x = '\0';
+            goal_msg.pose.pose.position.y = '\0';
+            goal_msg.pose.pose.position.z = '\0';
             goal_msg.pose.covariance = msg_cov_array;
             goal_msg.header.stamp = ros::Time::now();
             goal_pub.publish(goal_msg);
