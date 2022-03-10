@@ -124,7 +124,7 @@ public:
     double CostZ(cv::Mat x,cv::Mat x_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,double offset_z)
     {
         double resulting_cost{0};
-        resulting_cost = std::pow((x.at<float>(2) - x_prev.at<float>(2)),2) + std::pow((x.at<float>(2) - (master_pose.at<float>(0)+offset_z)),2) + 0.5*cv::determinant(state_cov)*10e-15 + 0.5*cv::determinant(object_cov)*10e-4;  
+        resulting_cost = std::pow((x.at<float>(2) - x_prev.at<float>(2)),2) + std::pow((x.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + 0.5*cv::determinant(state_cov)*10e-15 + 0.5*cv::determinant(object_cov)*10e-4;  
         return resulting_cost;
     }
     int sign(double x)
