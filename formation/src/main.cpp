@@ -444,6 +444,7 @@ int main(int argc, char** argv)
  
 
     ROS_INFO_STREAM  ("Instanciating Motion Controller\n");
+    ROS_INFO_STREAM  (argv[1]<<offset_parameter_x);
     std::string node_name = "";
     node_name += argv[4];
     node_name += "_formation_controller";

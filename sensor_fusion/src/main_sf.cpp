@@ -36,7 +36,7 @@ public:
     message_filters::Subscriber<Odometry> pose_sub;
 
     std::string obj_topic           = "";
-    std::string obj_topic_secondary ="";
+    std::string obj_topic_secondary = "";
     std::string pose_topic          = "";
     std::string goal_topic          = "";
 
@@ -56,6 +56,7 @@ public:
 
     cv::Point3f center3D;
 
+    cv::Mat main_cov,secondary_cov;
     // ---<< Kalman Filter Parameters ----
 
 
@@ -106,8 +107,8 @@ public:
         KF.statePre.at<float>(5) = 0;
 
         setIdentity(KF.measurementMatrix);
-        setIdentity(KF.processNoiseCov,     cv::Scalar::all(1e-4));
-        setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10));
+        setIdentity(KF.processNoiseCov,     cv::Scalar::all(1e-4)); //Q
+        setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10));   //R
         setIdentity(KF.errorCovPost,        cv::Scalar::all(.1));
         // ---<< Kalman Filter Parameters ----
 
@@ -143,15 +144,95 @@ public:
     {
         ros::Rate rate(100);
         ROS_INFO_STREAM("Synchronized");
-
-        if ((obj->pose.pose.position.x!='\0') || (obj_secondary->pose.pose.position.x!='\0'))
+        // if we see...
+        if ( (obj->pose.pose.position.x!='\0') &&  (obj_secondary->pose.pose.position.x!='\0') )
         {
-
             cv::Point3f predictPt = PredictUsingKalmanFilter();
             
             center3D.x = (float)((obj->pose.pose.position.x + obj_secondary->pose.pose.position.x)/2.0);
             center3D.y = (float)((obj->pose.pose.position.y + obj_secondary->pose.pose.position.y)/2.0);
             center3D.z = (float)((obj->pose.pose.position.z + obj_secondary->pose.pose.position.z)/2.0);
+
+            main_cov = (cv::Mat_<double>(6,6)<<
+                                                    obj->pose.covariance[0],
+                                                    obj->pose.covariance[1],
+                                                    obj->pose.covariance[2], 
+                                                    obj->pose.covariance[3],
+                                                    obj->pose.covariance[4],
+                                                    obj->pose.covariance[5],
+                                                    obj->pose.covariance[6],
+                                                    obj->pose.covariance[7],
+                                                    obj->pose.covariance[8],
+                                                    obj->pose.covariance[9],
+                                                    obj->pose.covariance[10],
+                                                    obj->pose.covariance[11],
+                                                    obj->pose.covariance[12], 
+                                                    obj->pose.covariance[13],
+                                                    obj->pose.covariance[14],
+                                                    obj->pose.covariance[15],
+                                                    obj->pose.covariance[16],
+                                                    obj->pose.covariance[17],
+                                                    obj->pose.covariance[18],
+                                                    obj->pose.covariance[19],
+                                                    obj->pose.covariance[20],
+                                                    obj->pose.covariance[21],
+                                                    obj->pose.covariance[22], 
+                                                    obj->pose.covariance[23],
+                                                    obj->pose.covariance[24],
+                                                    obj->pose.covariance[25],
+                                                    obj->pose.covariance[26],
+                                                    obj->pose.covariance[27],
+                                                    obj->pose.covariance[28],
+                                                    obj->pose.covariance[29],
+                                                    obj->pose.covariance[30],
+                                                    obj->pose.covariance[31],
+                                                    obj->pose.covariance[32], 
+                                                    obj->pose.covariance[33],
+                                                    obj->pose.covariance[34],
+                                                    obj->pose.covariance[35]
+                                                    );
+            secondary_cov = (cv::Mat_<double>(6,6)<<
+                                                    obj_secondary->pose.covariance[0],
+                                                    obj_secondary->pose.covariance[1],
+                                                    obj_secondary->pose.covariance[2], 
+                                                    obj_secondary->pose.covariance[3],
+                                                    obj_secondary->pose.covariance[4],
+                                                    obj_secondary->pose.covariance[5],
+                                                    obj_secondary->pose.covariance[6],
+                                                    obj_secondary->pose.covariance[7],
+                                                    obj_secondary->pose.covariance[8],
+                                                    obj_secondary->pose.covariance[9],
+                                                    obj_secondary->pose.covariance[10],
+                                                    obj_secondary->pose.covariance[11],
+                                                    obj_secondary->pose.covariance[12], 
+                                                    obj_secondary->pose.covariance[13],
+                                                    obj_secondary->pose.covariance[14],
+                                                    obj_secondary->pose.covariance[15],
+                                                    obj_secondary->pose.covariance[16],
+                                                    obj_secondary->pose.covariance[17],
+                                                    obj_secondary->pose.covariance[18],
+                                                    obj_secondary->pose.covariance[19],
+                                                    obj_secondary->pose.covariance[20],
+                                                    obj_secondary->pose.covariance[21],
+                                                    obj_secondary->pose.covariance[22], 
+                                                    obj_secondary->pose.covariance[23],
+                                                    obj_secondary->pose.covariance[24],
+                                                    obj_secondary->pose.covariance[25],
+                                                    obj_secondary->pose.covariance[26],
+                                                    obj_secondary->pose.covariance[27],
+                                                    obj_secondary->pose.covariance[28],
+                                                    obj_secondary->pose.covariance[29],
+                                                    obj_secondary->pose.covariance[30],
+                                                    obj_secondary->pose.covariance[31],
+                                                    obj_secondary->pose.covariance[32], 
+                                                    obj_secondary->pose.covariance[33],
+                                                    obj_secondary->pose.covariance[34],
+                                                    obj_secondary->pose.covariance[35]
+                                                    );
+            main_cov.convertTo(main_cov, CV_32F);
+            secondary_cov.convertTo(secondary_cov, CV_32F);
+
+            KF.measurementNoiseCov = (main_cov+secondary_cov)/2.0;
 
             SetMeasurement(center3D);
 
@@ -169,17 +250,139 @@ public:
             goal_pub.publish(goal_msg);
             rate.sleep();
         }
-        else
+        // if I see...
+        else if (obj->pose.pose.position.x!='\0')
         {
-            goal_msg.pose.pose.position.x = '\0';
-            goal_msg.pose.pose.position.y = '\0';
-            goal_msg.pose.pose.position.z = '\0';
+            cv::Point3f predictPt = PredictUsingKalmanFilter();
+            center3D.x = (float)(obj->pose.pose.position.x);
+            center3D.y = (float)(obj->pose.pose.position.y);
+            center3D.z = (float)(obj->pose.pose.position.z);
+
+            main_cov = (cv::Mat_<double>(6,6)<<
+                                                    obj->pose.covariance[0],
+                                                    obj->pose.covariance[1],
+                                                    obj->pose.covariance[2], 
+                                                    obj->pose.covariance[3],
+                                                    obj->pose.covariance[4],
+                                                    obj->pose.covariance[5],
+                                                    obj->pose.covariance[6],
+                                                    obj->pose.covariance[7],
+                                                    obj->pose.covariance[8],
+                                                    obj->pose.covariance[9],
+                                                    obj->pose.covariance[10],
+                                                    obj->pose.covariance[11],
+                                                    obj->pose.covariance[12], 
+                                                    obj->pose.covariance[13],
+                                                    obj->pose.covariance[14],
+                                                    obj->pose.covariance[15],
+                                                    obj->pose.covariance[16],
+                                                    obj->pose.covariance[17],
+                                                    obj->pose.covariance[18],
+                                                    obj->pose.covariance[19],
+                                                    obj->pose.covariance[20],
+                                                    obj->pose.covariance[21],
+                                                    obj->pose.covariance[22], 
+                                                    obj->pose.covariance[23],
+                                                    obj->pose.covariance[24],
+                                                    obj->pose.covariance[25],
+                                                    obj->pose.covariance[26],
+                                                    obj->pose.covariance[27],
+                                                    obj->pose.covariance[28],
+                                                    obj->pose.covariance[29],
+                                                    obj->pose.covariance[30],
+                                                    obj->pose.covariance[31],
+                                                    obj->pose.covariance[32], 
+                                                    obj->pose.covariance[33],
+                                                    obj->pose.covariance[34],
+                                                    obj->pose.covariance[35]
+                                                    );
+            main_cov.convertTo(main_cov, CV_32F);
+
+            KF.measurementNoiseCov = main_cov;
+
+            SetMeasurement(center3D);
+
+            cv::Point3f statePt = UpdateKalmanFilter(measurement);
+
+            goal_msg.pose.pose.position.x = (double)statePt.x;
+            goal_msg.pose.pose.position.y = (double)statePt.y;
+            goal_msg.pose.pose.position.z = (double)statePt.z;
+
+            ROS_INFO_STREAM(statePt);
+            cov_matrix = KF.errorCovPost;
             goal_msg.pose.covariance = msg_cov_array;
-            goal_msg.header.stamp = ros::Time::now();
+
+            goal_msg.header.stamp = ros::Time::now();    
             goal_pub.publish(goal_msg);
-   
             rate.sleep();
         }
+        // if another sees...
+        else if (obj_secondary->pose.pose.position.x!='\0')
+        
+        {
+            cv::Point3f predictPt = PredictUsingKalmanFilter();
+            center3D.x = (float)(obj_secondary->pose.pose.position.x);
+            center3D.y = (float)(obj_secondary->pose.pose.position.y);
+            center3D.z = (float)(obj_secondary->pose.pose.position.z);
+
+            secondary_cov = (cv::Mat_<double>(6,6)<<
+                                                    obj_secondary->pose.covariance[0],
+                                                    obj_secondary->pose.covariance[1],
+                                                    obj_secondary->pose.covariance[2], 
+                                                    obj_secondary->pose.covariance[3],
+                                                    obj_secondary->pose.covariance[4],
+                                                    obj_secondary->pose.covariance[5],
+                                                    obj_secondary->pose.covariance[6],
+                                                    obj_secondary->pose.covariance[7],
+                                                    obj_secondary->pose.covariance[8],
+                                                    obj_secondary->pose.covariance[9],
+                                                    obj_secondary->pose.covariance[10],
+                                                    obj_secondary->pose.covariance[11],
+                                                    obj_secondary->pose.covariance[12], 
+                                                    obj_secondary->pose.covariance[13],
+                                                    obj_secondary->pose.covariance[14],
+                                                    obj_secondary->pose.covariance[15],
+                                                    obj_secondary->pose.covariance[16],
+                                                    obj_secondary->pose.covariance[17],
+                                                    obj_secondary->pose.covariance[18],
+                                                    obj_secondary->pose.covariance[19],
+                                                    obj_secondary->pose.covariance[20],
+                                                    obj_secondary->pose.covariance[21],
+                                                    obj_secondary->pose.covariance[22], 
+                                                    obj_secondary->pose.covariance[23],
+                                                    obj_secondary->pose.covariance[24],
+                                                    obj_secondary->pose.covariance[25],
+                                                    obj_secondary->pose.covariance[26],
+                                                    obj_secondary->pose.covariance[27],
+                                                    obj_secondary->pose.covariance[28],
+                                                    obj_secondary->pose.covariance[29],
+                                                    obj_secondary->pose.covariance[30],
+                                                    obj_secondary->pose.covariance[31],
+                                                    obj_secondary->pose.covariance[32], 
+                                                    obj_secondary->pose.covariance[33],
+                                                    obj_secondary->pose.covariance[34],
+                                                    obj_secondary->pose.covariance[35]
+                                                    );
+            secondary_cov.convertTo(secondary_cov, CV_32F);
+
+            KF.measurementNoiseCov = secondary_cov;
+
+            SetMeasurement(center3D);
+
+            cv::Point3f statePt = UpdateKalmanFilter(measurement);
+
+            goal_msg.pose.pose.position.x = (double)statePt.x;
+            goal_msg.pose.pose.position.y = (double)statePt.y;
+            goal_msg.pose.pose.position.z = (double)statePt.z;
+
+            ROS_INFO_STREAM(statePt);
+            cov_matrix = KF.errorCovPost;
+            goal_msg.pose.covariance = msg_cov_array;
+
+            goal_msg.header.stamp = ros::Time::now();    
+            goal_pub.publish(goal_msg);
+            rate.sleep();
+        }   
     }
 };
 
