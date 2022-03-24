@@ -78,6 +78,7 @@ public:
     double step_y{0};
     double step_z{0};
 
+    #define NUMBER_OF_TRACKER_COUNT 22.0
 
     std::vector<double> cost_cur;
     std::vector<double> cost_prev;
@@ -273,16 +274,16 @@ public:
                 tracker.pop_back();
                 tracker.pop_back();
             }
-            if  (count > 22)
+            if  (count > (int) NUMBER_OF_TRACKER_COUNT)
             {
                 double sum_x{0},sum_y{0},sum_z{0};
-                for (int i=0;i<22;i++)
+                for (int i=0;i< (int) NUMBER_OF_TRACKER_COUNT;i++)
                 {
                     sum_x += tracker[i].at<float>(0);
                     sum_y += tracker[i].at<float>(1);
                     sum_z += tracker[i].at<float>(2);
                 }
-                master_pose = (cv::Mat_<float>(3,1) << sum_x/22,sum_y/22,sum_z/22);
+                master_pose = (cv::Mat_<float>(3,1) << sum_x/NUMBER_OF_TRACKER_COUNT,sum_y/NUMBER_OF_TRACKER_COUNT,sum_z/NUMBER_OF_TRACKER_COUNT);
                 for (int i=0;i<10;i++)
                 {
                     tracker.pop_back();
