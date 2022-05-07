@@ -27,7 +27,13 @@ using namespace geometry_msgs;
 using namespace nav_msgs;
 using namespace mrs_msgs;
 
-#define CONTROLLER_PERIOD 0.1
+#define CONTROLLER_PERIOD 0.001
+#define DELTA_MAX 0.5
+#define CONTROL_GAIN_GOAL 20
+#define CONTROL_GAIN_STATE 1
+#define NUMBER_OF_TRACKER_COUNT 22.0
+#define CALCULATION_STEPS 150
+#define CALCULATIOM_STEPS_IN_MOTION 30
 
 class Formation
 {
@@ -63,66 +69,71 @@ public:
     cv::Mat master_pose;
 
     // parameters
-    double n_pos {1.2};
-    double n_neg {0.5};
-    double delta_max {0.5};
-    double delta_min {0.000001};
+    float n_pos {1.2};
+    float n_neg {0.5};
+    float delta_max {DELTA_MAX};
+    float delta_min {0.001}; // 0.000001
    
-    double cost_prev_x{0},cost_cur_x{0};
-    double cost_prev_y{0},cost_cur_y{0};
-    double cost_prev_z{0},cost_cur_z{0};
-    double cost_dif_x{0};
-    double cost_dif_y{0};
-    double cost_dif_z{0};
-    double step_x{0};
-    double step_y{0};
-    double step_z{0};
+    float cost_prev_x{0},cost_cur_x{0};
+    float cost_prev_y{0},cost_cur_y{0};
+    float cost_prev_z{0},cost_cur_z{0};
+    float cost_dif_x{0};
+    float cost_dif_y{0};
+    float cost_dif_z{0};
+    float step_x{0};
+    float step_y{0};
+    float step_z{0};
 
-    #define NUMBER_OF_TRACKER_COUNT 22.0
+    
 
-    std::vector<double> cost_cur;
-    std::vector<double> cost_prev;
-    std::vector<double> grad_cur {0,0,0};
-    std::vector<double> grad_prev {0,0,0};
+    std::vector<float> cost_cur;
+    std::vector<float> cost_prev;
+    std::vector<float> grad_cur {0,0,0}; // 0 0 0 
+    std::vector<float> grad_prev {0,0,0}; // 0 0 0
 
-    std::vector<double> delta {0.5,0.5,0.5};
-    std::vector<double> delta_prev {0.5,0.5,0.5};
+    std::vector<float> delta {0.5,0.5,0.5};
+    std::vector<float> delta_prev {0.5,0.5,0.5};
 
     int k{0};  //computing steps
     
-    double                      x_previous;
-    double                      y_previous;
-    double                      z_previous;
+    float                      x_previous;
+    float                      y_previous;
+    float                      z_previous;
 
     
-    double                      offset_x;
-    double                      offset_y;
-    double                      offset_z;
+    float                      offset_x;
+    float                      offset_y;
+    float                      offset_z;
+
+    float resulting_cost_x {0};
+    float resulting_cost_y {0};
+    float resulting_cost_z {0};
+
     
     // ---------OUTPUT MSG-----------------------------------
     boost::array<float,4> goal = {0.0, 0.0, 0.0, 0.0};
     ros::ServiceClient client;
     mrs_msgs::Vec4 srv;
     //--------  COST FUNCTIONS ------------------------------
-    double CostX(cv::Mat x,cv::Mat x_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,double offset_x)
-    {
-        double resulting_cost{0};
-        resulting_cost = std::pow((x.at<float>(0) - x_prev.at<float>(0)),2) + std::pow((x.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + 0.5*cv::determinant(state_cov)*10e-15 + 0.5*cv::determinant(object_cov)*10e-4;  
-        return resulting_cost;
+    float CostX(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_x)
+    {        
+        // resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2); //-10 -4  
+        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + 0.5*cv::determinant(state_cov)*10e-20 + 0.5*cv::determinant(object_cov)*10e-10; //-10 -4  
+        return resulting_cost_x;
     }
-    double CostY(cv::Mat x,cv::Mat x_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,double offset_y)
+    float CostY(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_y)
     {
-        double resulting_cost{0};
-        resulting_cost = std::pow((x.at<float>(1) - x_prev.at<float>(1)),2) + std::pow((x.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + 0.5*cv::determinant(state_cov)*10e-15 + 0.5*cv::determinant(object_cov)*10e-4;  
-        return resulting_cost;
+        // resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2);  
+        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + 0.5*cv::determinant(state_cov)*10e-20 + 0.5*cv::determinant(object_cov)*10e-10;  
+        return resulting_cost_y;
     }
-    double CostZ(cv::Mat x,cv::Mat x_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,double offset_z)
+    float CostZ(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_z)
     {
-        double resulting_cost{0};
-        resulting_cost = std::pow((x.at<float>(2) - x_prev.at<float>(2)),2) + std::pow((x.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + 0.5*cv::determinant(state_cov)*10e-15 + 0.5*cv::determinant(object_cov)*10e-4;  
-        return resulting_cost;
+        // resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2);  
+        resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + 0.5*cv::determinant(state_cov)*10e-20 + 0.5*cv::determinant(object_cov)*10e-10;  
+        return resulting_cost_z;
     }
-    int sign(double x)
+    int sign(float x)
     {
         if (x > 0) return 1;
         if (x < 0) return -1;
@@ -130,7 +141,7 @@ public:
     }
 
 
-    Formation(char** argv, double x_parameter,double y_parameter, double z_parameter)
+    Formation(char** argv, float x_parameter,float y_parameter, float z_parameter)
     {
         //------------TOPICS-DECLARATIONS----------------
         if (argv[5] != NULL) 
@@ -183,12 +194,12 @@ public:
     }
     void callback(const OdometryConstPtr& object,const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
-        ROS_INFO("Synchronized\n");
+        // ROS_INFO("Synchronized\n");
 
         if (object->pose.pose.position.x != '\0'){
             //------------MEASUREMENTS-----------------------------
             state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,yaw->state[0]);
-            state_cov = (cv::Mat_<double>(6,6)<<
+            state_cov = (cv::Mat_<float>(6,6)<<
                                                     pose->pose.covariance[0],
                                                     pose->pose.covariance[1],
                                                     pose->pose.covariance[2], 
@@ -276,7 +287,7 @@ public:
             }
             if  (count > (int) NUMBER_OF_TRACKER_COUNT)
             {
-                double sum_x{0},sum_y{0},sum_z{0};
+                float sum_x{0},sum_y{0},sum_z{0};
                 for (int i=0;i< (int) NUMBER_OF_TRACKER_COUNT;i++)
                 {
                     sum_x += tracker[i].at<float>(0);
@@ -293,11 +304,12 @@ public:
             }
             
             w = (cv::Mat_<float>(3,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2)); 
+            // ROS_INFO_STREAM("[Current state]:" << w);
             //------------RPROP----------------
             // goal-driven behaviour
             if (master_pose.empty() == false)
             {
-                ROS_INFO_STREAM("master at"<<master_pose);
+                // ROS_INFO_STREAM("master at"<<master_pose);
                 // run optimization
                 // costs
                 cost_prev_x = CostX(w_prev,w_prev,master_pose,state_cov,object_cov,offset_x);
@@ -332,10 +344,9 @@ public:
                 // computing longer when standing
                 if ((std::abs(w.at<float>(0) - w_prev.at<float>(0))<0.2) || (std::abs(w.at<float>(1) - w_prev.at<float>(1))<0.2) || (std::abs(w.at<float>(2) - w_prev.at<float>(2))<0.2))
                 {
-                        k = 200;
-                } else  k = 50;
+                        k = CALCULATION_STEPS;
+                } else  k = CALCULATIOM_STEPS_IN_MOTION;
                 // -------------------------------------------------- 
-                
             
                 for(int j=0;j<k;j++)
                 {
@@ -396,11 +407,12 @@ public:
                     cost_prev[2] = cost_prev_z;
                 }
                 // ----------------------------------
-                srv.request.goal = boost::array<double, 4>{w.at<float>(0),w.at<float>(1),w.at<float>(2),std::round(atan2(master_pose.at<float>(1)-w.at<float>(1),master_pose.at<float>(0)-w.at<float>(0)))};
+                // ROS_INFO_STREAM("[Destination]: x "<<w.at<float>(0)<<" y " <<w.at<float>(1) << " z " <<w.at<float>(2) <<" yaw " <<std::round(atan2(master_pose.at<float>(1)-w.at<float>(1),master_pose.at<float>(0)-w.at<float>(0))));
+                srv.request.goal = boost::array<float, 4>{w.at<float>(0),w.at<float>(1),w.at<float>(2),std::round(atan2(master_pose.at<float>(1)-w.at<float>(1),master_pose.at<float>(0)-w.at<float>(0)))};
 
                 if (client.call(srv))
                 {
-                    // ROS_INFO("Successfull calling service\n");
+                    ROS_INFO("Successfull calling service\n");
                     sleep(CONTROLLER_PERIOD);
                 }
                 else 
@@ -411,7 +423,7 @@ public:
             }
             else
             {
-                ROS_INFO_STREAM("[CALCULATING]:"<<count);
+                // ROS_INFO_STREAM("[CALCULATING]:"<<count);
             }
 
             w_prev = (cv::Mat_<float>(3,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2)); 
@@ -445,7 +457,6 @@ int main(int argc, char** argv)
  
 
     ROS_INFO_STREAM  ("Instanciating Motion Controller\n");
-    ROS_INFO_STREAM  (argv[1]<<offset_parameter_x);
     std::string node_name = "";
     node_name += argv[4];
     node_name += "_formation_controller";

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(sensor_fusion)
+project(sensor_fusion_two)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -143,8 +143,8 @@ include_directories (
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/sensor_fusion_node.cpp)
-add_executable(main_sf src/main_sf.cpp)
-target_link_libraries(main_sf ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
+add_executable(sf_two src/sf_two.cpp)
+target_link_libraries(sf_two ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
 
 ## Rename C++ executable without prefix

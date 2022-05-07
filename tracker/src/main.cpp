@@ -20,6 +20,7 @@
 #define CAMERA_OFFSET 0.2
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
+#define RATE 1000
 
 using namespace sensor_msgs;
 using namespace message_filters;
@@ -126,7 +127,7 @@ public:
 
     void callback(const OdometryConstPtr& object,const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
-        ros::Rate rate(100);    
+        ros::Rate rate(RATE);    
         if (object->pose.pose.position.x != '\0'){
             
             //---------------------MEASUREMENTS---------------------------
@@ -145,14 +146,14 @@ public:
             msg.pose.pose.position.z = object_world.at<float>(2);
             msg.pose.covariance = object->pose.covariance;
 
-            ROS_INFO_STREAM("[GLOBAL]"<< object_world);       
+            //ROS_INFO_STREAM("[GLOBAL]"<< object_world);       
             object_pub.publish(msg);
             rate.sleep();
         }
         else
         {
             //---------------------IF-UNDETECTED--------------------------
-            ROS_INFO_STREAM("[CANNOT SEE]");
+            //ROS_INFO_STREAM("[CANNOT SEE]");
             msg.pose.pose.position.x = '\0';
             msg.pose.pose.position.y = '\0';
             msg.pose.pose.position.z = '\0';

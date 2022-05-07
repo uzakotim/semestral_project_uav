@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>sensor_fusion</name>
+  <name>sensor_fusion_three</name>
   <version>0.0.0</version>
   <description>The sensor_fusion package</description>
 

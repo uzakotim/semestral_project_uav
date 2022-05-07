@@ -248,7 +248,7 @@ public:
     }
     void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg)
     {
-        ROS_INFO("Synchronized\n");
+        //ROS_INFO("Synchronized\n");
         std_msgs::Header    msg_header  = depth_msg->header;
         std::string         frame_id    = msg_header.frame_id;
         PrintThatMessageWasReceived (frame_id);
@@ -320,7 +320,7 @@ public:
 
             cov_matrix = KF.errorCovPost;
 
-            ROS_INFO_STREAM("[Detected blue object: z "<< center3D.z <<"]");
+            //ROS_INFO_STREAM("[Detected blue object: z "<< center3D.z <<"]");
             
             cv::Mat display = cv_image + drawing;
             msg_output= cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();
