@@ -27,7 +27,7 @@ using namespace geometry_msgs;
 using namespace nav_msgs;
 using namespace mrs_msgs;
 
-#define CONTROLLER_PERIOD 2
+#define CONTROLLER_PERIOD 4
 #define DELTA_MAX 0.5
 #define CONTROL_GAIN_GOAL 20
 #define CONTROL_GAIN_STATE 1
@@ -120,7 +120,7 @@ public:
     void callback(const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
         ROS_INFO("Synchronized\n");
-        angle += M_PI/8;
+        angle += M_PI/16;
 
         if (angle >= 2*M_PI)
         {

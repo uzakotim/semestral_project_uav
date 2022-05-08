@@ -51,8 +51,14 @@ private:
     double object_y = 0;
     double object_z = 0;
 
-    cv::Scalar                  color_min = cv::Scalar(78,158,124); //BLUE
-    cv::Scalar                  color_max = cv::Scalar(138,255,255); //BLUE
+    cv::Scalar                  color_min = cv::Scalar(78,158,124);     //BLUE
+    cv::Scalar                  color_max = cv::Scalar(138,255,255);    //BLUE
+
+    cv::Scalar                  color_one_min = cv::Scalar(0,70,50);    //RED
+    cv::Scalar                  color_one_max = cv::Scalar(10,255,255); //RED
+    cv::Scalar                  color_two_min = cv::Scalar(170,70,50);  //RED
+    cv::Scalar                  color_two_max = cv::Scalar(180,255,255);//RED
+    
     cv::Scalar                  detection_color = cv::Scalar(255,100,0);
 
 
@@ -185,6 +191,17 @@ public:
         cv::inRange     (image, BlobDetector::color_min, BlobDetector::color_max, image_threshold);
         return image_threshold;
     }
+    cv::Mat ReturnRedMask(cv::Mat image)
+    {
+        cv::Mat          mask1,mask2,total;
+        cv::inRange     (image, BlobDetector::color_one_min, BlobDetector::color_one_max, mask1);
+        cv::inRange     (image, BlobDetector::color_two_min, BlobDetector::color_two_max, mask2);
+
+        total = mask1 | mask2;
+        
+        return total;
+    }
+
     std::vector<std::vector<cv::Point>> ReturnContours(cv::Mat image_threshold)
     {
         std::vector<std::vector<cv::Point>> contours;       //contours are stored here
@@ -268,7 +285,7 @@ public:
         // 2) conversion to hsv
         cv::Mat     image_HSV       = BGRtoHSV(blurred_image);
         // 3) finding orange mask
-        cv::Mat     image_threshold = ReturnOrangeMask(image_HSV);
+        cv::Mat     image_threshold = ReturnRedMask(image_HSV);
         // 4) finding contours
         std::vector<std::vector<cv::Point>> contours = ReturnContours(image_threshold);
         // 5) finding max contour
