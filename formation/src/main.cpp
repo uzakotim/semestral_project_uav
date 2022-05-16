@@ -192,6 +192,48 @@ public:
 
         ROS_INFO("Motion Controller Node Initialized Successfully"); 
     }
+    cv::Mat convertToCov(const OdometryConstPtr obj)
+    {
+        cv::Mat result = (cv::Mat_<double>(6,6)<<
+                                                        obj->pose.covariance[0],
+                                                        obj->pose.covariance[1],
+                                                        obj->pose.covariance[2], 
+                                                        obj->pose.covariance[3],
+                                                        obj->pose.covariance[4],
+                                                        obj->pose.covariance[5],
+                                                        obj->pose.covariance[6],
+                                                        obj->pose.covariance[7],
+                                                        obj->pose.covariance[8],
+                                                        obj->pose.covariance[9],
+                                                        obj->pose.covariance[10],
+                                                        obj->pose.covariance[11],
+                                                        obj->pose.covariance[12], 
+                                                        obj->pose.covariance[13],
+                                                        obj->pose.covariance[14],
+                                                        obj->pose.covariance[15],
+                                                        obj->pose.covariance[16],
+                                                        obj->pose.covariance[17],
+                                                        obj->pose.covariance[18],
+                                                        obj->pose.covariance[19],
+                                                        obj->pose.covariance[20],
+                                                        obj->pose.covariance[21],
+                                                        obj->pose.covariance[22], 
+                                                        obj->pose.covariance[23],
+                                                        obj->pose.covariance[24],
+                                                        obj->pose.covariance[25],
+                                                        obj->pose.covariance[26],
+                                                        obj->pose.covariance[27],
+                                                        obj->pose.covariance[28],
+                                                        obj->pose.covariance[29],
+                                                        obj->pose.covariance[30],
+                                                        obj->pose.covariance[31],
+                                                        obj->pose.covariance[32], 
+                                                        obj->pose.covariance[33],
+                                                        obj->pose.covariance[34],
+                                                        obj->pose.covariance[35]
+                                                        );
+        return result;
+    }
     void callback(const OdometryConstPtr& object,const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
         // ROS_INFO("Synchronized\n");
@@ -199,83 +241,10 @@ public:
         if (object->pose.pose.position.x != '\0'){
             //------------MEASUREMENTS-----------------------------
             state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,yaw->state[0]);
-            state_cov = (cv::Mat_<float>(6,6)<<
-                                                    pose->pose.covariance[0],
-                                                    pose->pose.covariance[1],
-                                                    pose->pose.covariance[2], 
-                                                    pose->pose.covariance[3],
-                                                    pose->pose.covariance[4],
-                                                    pose->pose.covariance[5],
-                                                    pose->pose.covariance[6],
-                                                    pose->pose.covariance[7],
-                                                    pose->pose.covariance[8],
-                                                    pose->pose.covariance[9],
-                                                    pose->pose.covariance[10],
-                                                    pose->pose.covariance[11],
-                                                    pose->pose.covariance[12], 
-                                                    pose->pose.covariance[13],
-                                                    pose->pose.covariance[14],
-                                                    pose->pose.covariance[15],
-                                                    pose->pose.covariance[16],
-                                                    pose->pose.covariance[17],
-                                                    pose->pose.covariance[18],
-                                                    pose->pose.covariance[19],
-                                                    pose->pose.covariance[20],
-                                                    pose->pose.covariance[21],
-                                                    pose->pose.covariance[22], 
-                                                    pose->pose.covariance[23],
-                                                    pose->pose.covariance[24],
-                                                    pose->pose.covariance[25],
-                                                    pose->pose.covariance[26],
-                                                    pose->pose.covariance[27],
-                                                    pose->pose.covariance[28],
-                                                    pose->pose.covariance[29],
-                                                    pose->pose.covariance[30],
-                                                    pose->pose.covariance[31],
-                                                    pose->pose.covariance[32], 
-                                                    pose->pose.covariance[33],
-                                                    pose->pose.covariance[34],
-                                                    pose->pose.covariance[35]
-                                                    );
+            cv::Mat state_cov = Formation::convertToCov(pose);
             
             object_coord = (cv::Mat_<float>(3,1)<< object->pose.pose.position.x,object->pose.pose.position.y,object->pose.pose.position.z);
-            object_cov   = (cv::Mat_<float>(6,6)<<   object->pose.covariance[0],
-                                                    object->pose.covariance[1],
-                                                    object->pose.covariance[2], 
-                                                    object->pose.covariance[3],
-                                                    object->pose.covariance[4],
-                                                    object->pose.covariance[5],
-                                                    object->pose.covariance[6],
-                                                    object->pose.covariance[7],
-                                                    object->pose.covariance[8],
-                                                    object->pose.covariance[9],
-                                                    object->pose.covariance[10],
-                                                    object->pose.covariance[11],
-                                                    object->pose.covariance[12], 
-                                                    object->pose.covariance[13],
-                                                    object->pose.covariance[14],
-                                                    object->pose.covariance[15],
-                                                    object->pose.covariance[16],
-                                                    object->pose.covariance[17],
-                                                    object->pose.covariance[18],
-                                                    object->pose.covariance[19],
-                                                    object->pose.covariance[20],
-                                                    object->pose.covariance[21],
-                                                    object->pose.covariance[22], 
-                                                    object->pose.covariance[23],
-                                                    object->pose.covariance[24],
-                                                    object->pose.covariance[25],
-                                                    object->pose.covariance[26],
-                                                    object->pose.covariance[27],
-                                                    object->pose.covariance[28],
-                                                    object->pose.covariance[29],
-                                                    object->pose.covariance[30],
-                                                    object->pose.covariance[31],
-                                                    object->pose.covariance[32], 
-                                                    object->pose.covariance[33],
-                                                    object->pose.covariance[34],
-                                                    object->pose.covariance[35]
-                                                    );
+            cv::Mat object_cov = Formation::convertToCov(object);
             //------------TRACKER----------------
             tracker.push_back(object_coord);
             count++;

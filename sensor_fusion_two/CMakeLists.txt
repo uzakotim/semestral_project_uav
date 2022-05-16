@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
   std_msgs
+  mrs_msgs
 )
 find_package(OpenCV 4.0.0 REQUIRED)
 ## System dependencies are found with CMake's conventions
@@ -113,6 +114,7 @@ catkin_package(
                  std_msgs
                  cv_bridge
                  image_transport
+                 mrs_msgs
 )
 
 
