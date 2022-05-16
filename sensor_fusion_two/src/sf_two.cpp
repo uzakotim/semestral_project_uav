@@ -16,7 +16,7 @@
 #include <opencv2/video/tracking.hpp>
 #include <string.h>
 
-#define RATE 100
+#define RATE 1000
 
 using namespace sensor_msgs;
 using namespace message_filters;
@@ -191,7 +191,7 @@ public:
     void callback_two(const OdometryConstPtr obj,const OdometryConstPtr obj_secondary, const OdometryConstPtr pose)
     {
         ros::Rate rate(RATE);
-        //ROS_INFO_STREAM("Synchronized");
+        ROS_INFO_STREAM("Synchronized");
         // if we see...
         if ( (obj->pose.pose.position.x!='\0') &&  (obj_secondary->pose.pose.position.x!='\0') )
         {

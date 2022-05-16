@@ -27,7 +27,7 @@ using namespace geometry_msgs;
 using namespace nav_msgs;
 using namespace mrs_msgs;
 
-#define CONTROLLER_PERIOD 4
+#define CONTROLLER_PERIOD 8
 #define DELTA_MAX 0.5
 #define CONTROL_GAIN_GOAL 20
 #define CONTROL_GAIN_STATE 1
@@ -39,7 +39,7 @@ class Formation
 {
 public:
     ros::NodeHandle nh;   
-    message_filters::Subscriber<Odometry>     sub_1;
+    message_filters::Subscriber<Odometry>       sub_1;
     message_filters::Subscriber<EstimatedState> sub_2;
 
     typedef sync_policies::ApproximateTime<Odometry,EstimatedState> MySyncPolicy;
