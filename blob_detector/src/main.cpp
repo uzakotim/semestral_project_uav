@@ -32,6 +32,7 @@ using namespace mrs_msgs;
 #define CAMERA_OFFSET 0.2
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
+#define BLOB_SIZE 10
 
 class BlobDetector
 {
@@ -113,7 +114,6 @@ public:
     BlobDetector(char* name)
     {
 
-
         image_pub_topic  += "/";
         image_pub_topic  += name;
         image_pub_topic  += "/blob_detection";
@@ -172,17 +172,16 @@ public:
         // ---<< Kalman Filter Parameters ----
         ROS_INFO("All functions initialized");
     }
-    void PrintThatMessageWasReceived(std::string frame_id)
+    void PrintThatMessageWasReceived(const std::string& frame_id)
     {
 
         ROS_INFO_STREAM("[Image from: " <<frame_id<<" ]");
     }
-    cv::Point3d PredictUsingKalmanFilter()
+    void PredictUsingKalmanFilter()
     {
         // Prediction, to update the internal statePre variable -->>
         cv::Mat prediction  =   KF.predict();
         cv::Point3d predictPt(prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2));
-        return  predictPt;
         //  <<---Prediction, to update the internal statePre variable
     }
     cv::Mat ReturnCVMatImageFromMsg(const sensor_msgs::ImageConstPtr& msg)
@@ -335,7 +334,7 @@ public:
 
 
 
-        cv::Point3d predictPt= PredictUsingKalmanFilter();
+        PredictUsingKalmanFilter();
         // -->> Operations on image ----
         cv::cvtColor(cv_image, cv_image, cv::COLOR_BGR2RGB);
         
@@ -357,80 +356,104 @@ public:
 
         if (maxAreaContourId>=0)
         {
-
-            cv::Point2f center = FindCenter(contours, maxAreaContourId);
-            float       radius = FindRadius(contours, maxAreaContourId);
-
-            cv::Point3d center3D;
-
-            center3D.x = center.x; //from left to right
-            center3D.y = center.y; // from top to bottom
-            unsigned short val = depth_image.at<unsigned short>(center.y, center.x);
-            center3D.z = static_cast<float>(val);
-            center3D.z /= 1000.0;
-
-            // uncomment the following to draw contours exactly
-              // cv::drawContours(drawing, contours, maxAreaContourId,
-                //                detectionColor ,5, cv::LINE_8, hierarchy, 0 );
-
-             //-<<---Blob detector
-            // Obtaining the point from Kalman Filter
-            SetMeasurement(center3D);
+            double   newArea = cv::contourArea(contours.at(maxAreaContourId));
+            if (newArea> BLOB_SIZE)
+            {
 
 
+                cv::Point2f center = FindCenter(contours, maxAreaContourId);
+                float       radius = FindRadius(contours, maxAreaContourId);
 
-            cv::Point3d statePt = UpdateKalmanFilter(measurement);
+                cv::Point3d center3D;
 
+                center3D.x = center.x; //from left to right
+                center3D.y = center.y; // from top to bottom
+                unsigned short val = depth_image.at<unsigned short>(center.y, center.x);
+                center3D.z = static_cast<float>(val);
+                center3D.z /= 1000.0;
 
-            // uncomment the following for checking estimated center coordinates
-            // std::cout<<statePt<<'\n';
-            cv::Point2d statePt2D;
-            statePt2D.x = statePt.x;
-            statePt2D.y = statePt.y;
-             // Drawing Point
-            cv::circle  (drawing, statePt2D, int(radius), detection_color, 2 );
-            cv::circle  (drawing, statePt2D, 5, detection_color, 10);
+                // uncomment the following to draw contours exactly
+                // cv::drawContours(drawing, contours, maxAreaContourId,
+                    //                detectionColor ,5, cv::LINE_8, hierarchy, 0 );
 
-            // msg_object.pose.pose.position.x = (double)statePt.x;
-            // msg_object.pose.pose.position.y = (double)statePt.y;
-            // msg_object.pose.pose.position.z = (double)statePt.z;
-
-            // Set covariance
-
-            cov_matrix = KF.errorCovPost;
+                //-<<---Blob detector
+                // Obtaining the point from Kalman Filter
+                SetMeasurement(center3D);
 
 
-            // Conversion to world coordinates
-            //---------------------MEASUREMENTS---------------------------
-            state           = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
-            object_coord    = (cv::Mat_<float>(3,1)<< (float)statePt.x, (float)statePt.y, (float)statePt.z);
-            yaw_value       = yaw->state[0];
-            
-            //---------------------CALCULATIONS---------------------------
-            cv::Mat offset  = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
-            object_world = ObjectCoordinateToWorld(object_coord,yaw_value,state,offset);
-            // ---------------------MSG-----------------------------------------------
-            msg_object.header.frame_id = counter;
-            msg_object.header.stamp = ros::Time::now();
-            msg_object.pose.pose.position.x = object_world.at<float>(0);
-            msg_object.pose.pose.position.y = object_world.at<float>(1);
-            msg_object.pose.pose.position.z = object_world.at<float>(2);
-            msg_object.pose.covariance = msg_cov_array;
 
-            ROS_INFO_STREAM("[GLOBAL]"<< object_world);       
-            object_pub.publish(msg_object);
-            
-            cv::Mat display = cv_image + drawing;
+                cv::Point3d statePt = UpdateKalmanFilter(measurement);
+
+
+                // uncomment the following for checking estimated center coordinates
+                // std::cout<<statePt<<'\n';
+                cv::Point2d statePt2D;
+                statePt2D.x = statePt.x;
+                statePt2D.y = statePt.y;
+                // Drawing Point
+                cv::circle  (drawing, statePt2D, int(radius), detection_color, 2 );
+                cv::circle  (drawing, statePt2D, 5, detection_color, 10);
+
+                // msg_object.pose.pose.position.x = (double)statePt.x;
+                // msg_object.pose.pose.position.y = (double)statePt.y;
+                // msg_object.pose.pose.position.z = (double)statePt.z;
+
+                // Set covariance
+
+                cov_matrix = KF.errorCovPost;
+
+
+                // Conversion to world coordinates
+                //---------------------MEASUREMENTS---------------------------
+                state           = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
+                object_coord    = (cv::Mat_<float>(3,1)<< (float)statePt.x, (float)statePt.y, (float)statePt.z);
+                yaw_value       = yaw->state[0];
+                
+                //---------------------CALCULATIONS---------------------------
+                cv::Mat offset  = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
+                object_world = ObjectCoordinateToWorld(object_coord,yaw_value,state,offset);
+                // ---------------------MSG-----------------------------------------------
+                msg_object.header.frame_id = counter;
+                msg_object.header.stamp = ros::Time::now();
+                msg_object.pose.pose.position.x = object_world.at<float>(0);
+                msg_object.pose.pose.position.y = object_world.at<float>(1);
+                msg_object.pose.pose.position.z = object_world.at<float>(2);
+                msg_object.pose.covariance = msg_cov_array;
+
+                ROS_INFO_STREAM("[GLOBAL]"<< object_world);       
+                object_pub.publish(msg_object);
+                
+                cv::Mat display = cv_image + drawing;
+                msg_output= cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();
+                msg_output->header.frame_id = std::to_string(counter);
+                msg_output->header.stamp = ros::Time::now();
+                image_pub.publish(msg_output);
+
+                
+                rate.sleep();
+
+            }
+            else {
+            cv::Mat display = cv_image;
             msg_output= cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();
             msg_output->header.frame_id = std::to_string(counter);
             msg_output->header.stamp = ros::Time::now();
             image_pub.publish(msg_output);
-
             
-            rate.sleep();
+            msg_object.pose.pose.position.x = '\0';
+            msg_object.pose.pose.position.y = '\0';
+            msg_object.pose.pose.position.z = '\0';
+            msg_object.pose.covariance = msg_cov_array;
+            msg_object.header.frame_id = std::to_string(counter);
+            msg_object.header.stamp = ros::Time::now();
+            ROS_INFO_STREAM("[CANNOT SEE]");       
+            object_pub.publish(msg_object);
 
+            rate.sleep();
+            }
         }
-        else {
+        else
+        {
             cv::Mat display = cv_image;
             msg_output= cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();
             msg_output->header.frame_id = std::to_string(counter);

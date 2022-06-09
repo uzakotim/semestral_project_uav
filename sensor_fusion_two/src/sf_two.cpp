@@ -28,8 +28,8 @@
 #define CONTROL_GAIN_GOAL 20
 #define CONTROL_GAIN_STATE 1
 #define NUMBER_OF_TRACKER_COUNT 22.0
-#define CALCULATION_STEPS 150
-#define CALCULATIOM_STEPS_IN_MOTION 30
+#define CALCULATION_STEPS 50 //150
+#define CALCULATIOM_STEPS_IN_MOTION 10 //30
 
 using namespace sensor_msgs;
 using namespace message_filters;
@@ -40,48 +40,7 @@ using namespace mrs_msgs;
 int number_of_drones;
 
 
-// cv::Mat convertToCov(const OdometryConstPtr obj)
-// {
-//     cv::Mat result = (cv::Mat_<double>(6,6)<<
-//                                                     obj->pose.covariance[0],
-//                                                     obj->pose.covariance[1],
-//                                                     obj->pose.covariance[2], 
-//                                                     obj->pose.covariance[3],
-//                                                     obj->pose.covariance[4],
-//                                                     obj->pose.covariance[5],
-//                                                     obj->pose.covariance[6],
-//                                                     obj->pose.covariance[7],
-//                                                     obj->pose.covariance[8],
-//                                                     obj->pose.covariance[9],
-//                                                     obj->pose.covariance[10],
-//                                                     obj->pose.covariance[11],
-//                                                     obj->pose.covariance[12], 
-//                                                     obj->pose.covariance[13],
-//                                                     obj->pose.covariance[14],
-//                                                     obj->pose.covariance[15],
-//                                                     obj->pose.covariance[16],
-//                                                     obj->pose.covariance[17],
-//                                                     obj->pose.covariance[18],
-//                                                     obj->pose.covariance[19],
-//                                                     obj->pose.covariance[20],
-//                                                     obj->pose.covariance[21],
-//                                                     obj->pose.covariance[22], 
-//                                                     obj->pose.covariance[23],
-//                                                     obj->pose.covariance[24],
-//                                                     obj->pose.covariance[25],
-//                                                     obj->pose.covariance[26],
-//                                                     obj->pose.covariance[27],
-//                                                     obj->pose.covariance[28],
-//                                                     obj->pose.covariance[29],
-//                                                     obj->pose.covariance[30],
-//                                                     obj->pose.covariance[31],
-//                                                     obj->pose.covariance[32], 
-//                                                     obj->pose.covariance[33],
-//                                                     obj->pose.covariance[34],
-//                                                     obj->pose.covariance[35]
-//                                                     );
-//     return result;
-// }
+
 class SensFuseTwo
 {
 public:
@@ -246,12 +205,11 @@ public:
 
         ROS_INFO("[Two Drones] All functions initialized");
     }
-    cv::Point3f PredictUsingKalmanFilter()
+    void PredictUsingKalmanFilter()
     {
         // Prediction, to update the internal statePre variable -->>
         cv::Mat prediction  =  KF.predict();
         cv::Point3f predictPt(prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2));
-        return  predictPt;
         //  <<---Prediction, to update the internal statePre variable
     }
 
@@ -451,10 +409,14 @@ public:
     {
         ros::Rate rate(RATE);
         ROS_INFO_STREAM("Synchronized");
+
+
+
         // if we see...
         if ( (obj->pose.pose.position.x!='\0') &&  (obj_secondary->pose.pose.position.x!='\0') )
         {
-            cv::Point3f predictPt = PredictUsingKalmanFilter();
+            ROS_INFO_STREAM("We see...\n");
+            PredictUsingKalmanFilter();
             
             center3D.x = (float)((obj->pose.pose.position.x + obj_secondary->pose.pose.position.x)/2.0);
             center3D.y = (float)((obj->pose.pose.position.y + obj_secondary->pose.pose.position.y)/2.0);
@@ -490,8 +452,8 @@ public:
             ROS_INFO_STREAM("[Destination]: "<<x_goal<<" : "<<y_goal<<" : "<<z_goal);
             master_pose = (cv::Mat_<float>(3,1) << x_goal,y_goal,z_goal);
             //------------MEASUREMENTS------------------------------
-            cv::Mat state = (cv::Mat_<float>(3,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
-            cv::Mat state_cov = SensFuseTwo::convertToCov(pose);
+            state = (cv::Mat_<float>(3,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
+            state_cov = SensFuseTwo::convertToCov(pose);
             //------------------------------------------------------
             //------------RPROP----------------
             // goal-driven behaviour
@@ -523,10 +485,13 @@ public:
             // -----------------------------------------------------
             rate.sleep();
         }
+
+
         // if I see...
         else if (obj->pose.pose.position.x!='\0')
-        {
-            cv::Point3f predictPt = PredictUsingKalmanFilter();
+        {   
+            ROS_INFO_STREAM("I see...\n");
+            PredictUsingKalmanFilter();
             center3D.x = (float)(obj->pose.pose.position.x);
             center3D.y = (float)(obj->pose.pose.position.y);
             center3D.z = (float)(obj->pose.pose.position.z);
@@ -583,11 +548,14 @@ public:
             // -----------------------------------------------------
             rate.sleep();
         }
+
+
         // if another sees...
         else if (obj_secondary->pose.pose.position.x!='\0')
         
         {
-            cv::Point3f predictPt = PredictUsingKalmanFilter();
+            ROS_INFO_STREAM("Another sees...\n");
+            PredictUsingKalmanFilter();
             center3D.x = (float)(obj_secondary->pose.pose.position.x);
             center3D.y = (float)(obj_secondary->pose.pose.position.y);
             center3D.z = (float)(obj_secondary->pose.pose.position.z);
@@ -609,8 +577,8 @@ public:
             master_pose = (cv::Mat_<float>(3,1) << x_goal,y_goal,z_goal);
 
             //------------MEASUREMENTS------------------------------
-            cv::Mat state = (cv::Mat_<float>(3,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
-            cv::Mat state_cov = SensFuseTwo::convertToCov(pose);
+            state = (cv::Mat_<float>(3,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
+            state_cov = SensFuseTwo::convertToCov(pose);
             //------------------------------------------------------
 
             //------------RPROP----------------
