@@ -34,6 +34,7 @@ using namespace mrs_msgs;
 #define NUMBER_OF_TRACKER_COUNT 22.0
 #define CALCULATION_STEPS 150
 #define CALCULATIOM_STEPS_IN_MOTION 30
+#define RADIUS 2.0
 
 class Formation
 {
@@ -75,7 +76,7 @@ public:
     float resulting_cost_z {0};
 
     float angle = 0.0;
-    float radius = 5.0;
+    float radius = RADIUS;
     
     float goal_x {0.0};
     float goal_y {0.0};
