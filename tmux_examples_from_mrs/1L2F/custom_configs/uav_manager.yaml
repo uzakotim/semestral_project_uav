@@ -1,5 +1,5 @@
 collistion_avoidance:
-  enabled: true
+  enabled: false
 
 mpc_solver:
   horizon_len: 10
