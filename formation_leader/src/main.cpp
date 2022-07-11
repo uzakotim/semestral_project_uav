@@ -27,14 +27,14 @@ using namespace geometry_msgs;
 using namespace nav_msgs;
 using namespace mrs_msgs;
 
-#define CONTROLLER_PERIOD 8
+#define CONTROLLER_PERIOD 4
 #define DELTA_MAX 0.5
 #define CONTROL_GAIN_GOAL 20
 #define CONTROL_GAIN_STATE 1
 #define NUMBER_OF_TRACKER_COUNT 22.0
 #define CALCULATION_STEPS 150
 #define CALCULATIOM_STEPS_IN_MOTION 30
-#define RADIUS 2.0
+#define RADIUS 1.0
 
 class Formation
 {
@@ -80,7 +80,7 @@ public:
     
     float goal_x {0.0};
     float goal_y {0.0};
-    float goal_z {2.5};
+    float goal_z {3.0};
     // ---------OUTPUT MSG-----------------------------------
     boost::array<float,4> goal = {0.0, 0.0, 0.0, 0.0};
     ros::ServiceClient client;
@@ -121,7 +121,7 @@ public:
     void callback(const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
         ROS_INFO("Synchronized\n");
-        angle += M_PI/16;
+        angle += M_PI/8;
 
         if (angle >= 2*M_PI)
         {
