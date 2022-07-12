@@ -34,7 +34,7 @@ using namespace mrs_msgs;
 #define NUMBER_OF_TRACKER_COUNT 22.0
 #define CALCULATION_STEPS 150
 #define CALCULATIOM_STEPS_IN_MOTION 30
-#define RADIUS 1.0
+#define RADIUS 2.0
 
 class Formation
 {
@@ -42,8 +42,9 @@ public:
     ros::NodeHandle nh;   
     message_filters::Subscriber<Odometry>       sub_1;
     message_filters::Subscriber<EstimatedState> sub_2;
+    message_filters::Subscriber<Odometry>       sub_3;
 
-    typedef sync_policies::ApproximateTime<Odometry,EstimatedState> MySyncPolicy;
+    typedef sync_policies::ApproximateTime<Odometry,EstimatedState,Odometry> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
     
@@ -53,6 +54,7 @@ public:
     std::string                 sub_pose_topic   = "";
     std::string                 sub_object_topic = "";
     std::string                 sub_yaw_topic = "";
+    std::string                 sub_detection_topic = "";
     //publishers
     std::string                 pub_pose_topic   = "";
 
@@ -81,6 +83,17 @@ public:
     float goal_x {0.0};
     float goal_y {0.0};
     float goal_z {3.0};
+
+    float pose_x {0.0};
+    float pose_y {0.0};
+
+    float obj_x {0.0};
+    float obj_y {0.0};
+    float obj_z {0.0};
+    float obj_yaw {0.0};
+    float error {0.0};
+    float yaw_value {0.0};
+
     // ---------OUTPUT MSG-----------------------------------
     boost::array<float,4> goal = {0.0, 0.0, 0.0, 0.0};
     ros::ServiceClient client;
@@ -98,16 +111,23 @@ public:
         sub_yaw_topic  +=argv[4];
         sub_yaw_topic  +="/odometry/heading_state_out/";
 
+        sub_detection_topic += "/";
+        sub_detection_topic += argv[4];
+        sub_detection_topic += "/tracker/";
+
         pub_pose_topic+="/";
         pub_pose_topic+=argv[4];
         pub_pose_topic+="/control_manager/goto";
+
+
         ROS_INFO_STREAM(pub_pose_topic);
 
         sub_1.subscribe(nh,sub_pose_topic,1);
         sub_2.subscribe(nh,sub_yaw_topic,1);
+        sub_3.subscribe(nh,sub_detection_topic,1);
 
-        sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2));
-        sync->registerCallback(boost::bind(&Formation::callback,this,_1,_2));
+        sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2,sub_3));
+        sync->registerCallback(boost::bind(&Formation::callback,this,_1,_2,_3));
                 
         client = nh.serviceClient<mrs_msgs::Vec4>(pub_pose_topic);
 
@@ -118,21 +138,35 @@ public:
 
         ROS_INFO("Leader Controller Node Initialized Successfully"); 
     }
-    void callback(const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
+    void callback(const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw, const OdometryConstPtr obj)
     {
         ROS_INFO("Synchronized\n");
+        pose_x = (float)(pose->pose.pose.position.x);
+        pose_y = (float)(pose->pose.pose.position.y);
+
+        obj_x = (float)(obj->pose.pose.position.x);
+        obj_y = (float)(obj->pose.pose.position.y);
+        obj_z = (float)(obj->pose.pose.position.z);
+        obj_yaw = (float)(std::round(atan2(obj_y-pose_y,obj_x-pose_x)));
+        yaw_value = yaw->state[0];
+
+        error = obj_yaw-yaw_value;
+        
         angle += M_PI/8;
 
         if (angle >= 2*M_PI)
         {
             angle = 0;
         }
-        goal_x = center_x + radius * cos(angle);
-        goal_y = center_y + radius * sin(angle);
+        // goal_x = center_x + radius * cos(angle);
+        // goal_y = center_y + radius * sin(angle);
+        goal_x = center_x;
+        goal_y = center_y;
         ROS_INFO_STREAM("angle: "<<angle<<" radius: "<<radius<<'\n');
         ROS_INFO_STREAM("goal x: "<<goal_x<<" goal y: "<<goal_y<<'\n');
 
-        srv.request.goal = boost::array<float, 4>{goal_x,goal_y,goal_z,0.0};
+
+        srv.request.goal = boost::array<float, 4>{goal_x,goal_y,goal_z,(float)(obj_yaw-error/2.0)};
       
         if (client.call(srv))
         {

@@ -166,7 +166,7 @@ public:
         KF.statePre.at<float>(5) = 0;
 
         setIdentity(KF.measurementMatrix);
-        setIdentity(KF.processNoiseCov,     cv::Scalar::all(1e-1)); //-4
+        setIdentity(KF.processNoiseCov,     cv::Scalar::all(10)); //-4 //-1
         setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10));
         setIdentity(KF.errorCovPost,        cv::Scalar::all(.1));
         // ---<< Kalman Filter Parameters ----
