@@ -28,11 +28,11 @@ using namespace nav_msgs;
 using namespace mrs_msgs;
 
 
-#define RATE 100
-#define CAMERA_OFFSET 0.2
+#define RATE 1000
+#define CAMERA_OFFSET 0.2 //0.2
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
-#define BLOB_SIZE 10
+#define BLOB_SIZE 50 // 10
 
 class BlobDetector
 {
@@ -407,10 +407,11 @@ public:
                 //---------------------MEASUREMENTS---------------------------
                 state           = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
                 object_coord    = (cv::Mat_<float>(3,1)<< (float)statePt.x, (float)statePt.y, (float)statePt.z);
-                yaw_value       = yaw->state[0];
-                
+                yaw_value       = (float)(yaw->state[0]);
+                ROS_INFO_STREAM("[YAW]"<<yaw_value);
                 //---------------------CALCULATIONS---------------------------
                 cv::Mat offset  = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
+                // cv::Mat offset  = (cv::Mat_<float>(3,1) << 0,0,0); // 0.2
                 object_world = ObjectCoordinateToWorld(object_coord,yaw_value,state,offset);
                 // ---------------------MSG-----------------------------------------------
                 msg_object.header.frame_id = counter;

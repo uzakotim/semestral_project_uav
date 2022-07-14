@@ -27,14 +27,17 @@ using namespace geometry_msgs;
 using namespace nav_msgs;
 using namespace mrs_msgs;
 
-#define CONTROLLER_PERIOD 0.001
+
+
+#define CONTROLLER_PERIOD 1
 #define DELTA_MAX 0.5
 #define CONTROL_GAIN_GOAL 20
 #define CONTROL_GAIN_STATE 1
 #define NUMBER_OF_TRACKER_COUNT 22.0
-#define CALCULATION_STEPS 150
-#define CALCULATIOM_STEPS_IN_MOTION 30
-#define RADIUS 2.0
+#define CALCULATION_STEPS 300 //150
+#define CALCULATIOM_STEPS_IN_MOTION 60 //30
+#define RADIUS 3.0
+#define FLYING_AROUND 0
 
 #define RATE 1000
 #define NUMBER_OF_TRACKER_COUNT 22.0
@@ -61,6 +64,9 @@ public:
     //publishers
     std::string                 pub_pose_topic   = "";
 
+    //------------MODE--PARAMETER-----------------------
+    int yawSearch {1}; // 1 - ON ; 0 - OFF;
+
 
     //------------OPTIMIZATION-PARAMETERS----------------`
     float                      center_x {0.0};
@@ -77,11 +83,12 @@ public:
     float                      offset_z;
 
     float angle = 0.0;
+    float searchAngle = -M_PI;
     float radius = RADIUS;
     
     float goal_x {0.0};
     float goal_y {0.0};
-    float goal_z {2.0};
+    float goal_z {0.0};
     float goal_yaw{0.0};
 
     float pose_x {0.0};
@@ -94,6 +101,7 @@ public:
     
     float error {0.0};
     float yaw_value {0.0};
+    float stored_yaw{0.0};
 
     // ----------Formation controller parameters--------------
 
@@ -393,8 +401,6 @@ public:
     {
         ROS_INFO("Synchronized\n");
         /*-------------MEASUREMENTS----------------*/
-
-
         pose_x = (float)(pose->pose.pose.position.x);
         pose_y = (float)(pose->pose.pose.position.y);
 
@@ -419,29 +425,53 @@ public:
         
         
         // moving around origin -------------------------     
-        
-        // angle += M_PI/8;
+        if (FLYING_AROUND == 1)
+        {
+            angle += M_PI/32;
 
-        // if (angle >= 2*M_PI)
-        // {
-        //     angle = 0;
-        // }
-        // // goal_x = center_x + radius * cos(angle);
-        // // goal_y = center_y + radius * sin(angle);
-        // goal_x = center_x;
-        // goal_y = center_y;
-        // ROS_INFO_STREAM("angle: "<<angle<<" radius: "<<radius<<'\n');
-        // ROS_INFO_STREAM("goal x: "<<goal_x<<" goal y: "<<goal_y<<'\n');
+            if (angle >= 2*M_PI)
+            {
+                angle = 0;
+            }
+            goal_x = 0 + radius * cos(angle);
+            goal_y = 0 + radius * sin(angle);
+            goal_z = 3.0;
+            // goal_x = center_x;
+            // goal_y = center_y;
+            // ROS_INFO_STREAM("angle: "<<angle<<" radius: "<<radius<<'\n');
+            ROS_INFO_STREAM("goal x: "<<goal_x<<" goal y: "<<goal_y<<'\n');
+        }
+        
 
         //---------------------------------------------------
 
 
 
+        if (FLYING_AROUND==0)
+        {
+            goal_x = w.at<float>(0);
+            goal_y = w.at<float>(1);
+            goal_z = w.at<float>(2);
+        }
 
-        goal_x = w.at<float>(0);
-        goal_y = w.at<float>(1);
-        goal_z = w.at<float>(2);
-        goal_yaw = w.at<float>(3);
+        if (obj->pose.pose.position.x == '\0')
+        {
+            // If I don't see, I search
+
+            searchAngle += M_PI/8;
+
+            if (searchAngle >= M_PI)
+            {
+                searchAngle = -M_PI;
+            }
+            goal_yaw = searchAngle;
+
+        }else
+        {
+            goal_yaw = w.at<float>(3);
+            searchAngle = goal_yaw;
+        }
+
 
         srv.request.goal = boost::array<float, 4>{goal_x,goal_y,goal_z,goal_yaw};
       
