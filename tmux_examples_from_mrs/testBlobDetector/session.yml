@@ -87,7 +87,7 @@ windows:
       layout: tiled
       panes:
         - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector main $UAV_NAME
-        - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun formation_leader formation_leader -2.0 -2.0 0.2 $UAV_NAME
+        - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun formation_leader formation_leader -5.0 -5.0 0.2 $UAV_NAME
         # - export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; rosrun sensor_fusion_two sf_two $UAV_NAME2 $UAV_NAME3 -3.0 0.0 0.0
         # - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun formation formation_main -5 0 0.2 $UAV_NAME2 $UAV_NAME1 $UAV_NAME3
   # - uav3:

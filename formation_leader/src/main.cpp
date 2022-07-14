@@ -38,6 +38,7 @@ using namespace mrs_msgs;
 #define CALCULATIOM_STEPS_IN_MOTION 60 //30
 #define RADIUS 3.0
 #define FLYING_AROUND 0
+#define SEARCH_SIZE 8
 
 #define RATE 1000
 #define NUMBER_OF_TRACKER_COUNT 22.0
@@ -84,6 +85,7 @@ public:
 
     float angle = 0.0;
     float searchAngle = -M_PI;
+
     float radius = RADIUS;
     
     float goal_x {0.0};
@@ -457,13 +459,15 @@ public:
         if (obj->pose.pose.position.x == '\0')
         {
             // If I don't see, I search
-
-            searchAngle += M_PI/8;
+            
+            searchAngle += M_PI/SEARCH_SIZE;
+            ROS_INFO_STREAM("[search]: ["<<searchAngle<<"]");
 
             if (searchAngle >= M_PI)
             {
                 searchAngle = -M_PI;
             }
+            
             goal_yaw = searchAngle;
 
         }else
