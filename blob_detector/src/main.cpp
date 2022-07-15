@@ -32,7 +32,7 @@ using namespace mrs_msgs;
 #define CAMERA_OFFSET 0.2 //0.2
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
-#define BLOB_SIZE 50 // 10
+#define BLOB_SIZE 100 // 10
 
 class BlobDetector
 {
