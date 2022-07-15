@@ -29,16 +29,16 @@ using namespace mrs_msgs;
 
 
 
-#define CONTROLLER_PERIOD 1
+#define CONTROLLER_PERIOD 0.1
 #define DELTA_MAX 0.5
-#define CONTROL_GAIN_GOAL 20
-#define CONTROL_GAIN_STATE 1
+#define CONTROL_GAIN_GOAL 20 //20
+#define CONTROL_GAIN_STATE 0.01  // 1
 #define NUMBER_OF_TRACKER_COUNT 22.0
-#define CALCULATION_STEPS 300 //150
-#define CALCULATIOM_STEPS_IN_MOTION 60 //30
+#define CALCULATION_STEPS 50 //150
+#define CALCULATIOM_STEPS_IN_MOTION 10 //30
 #define RADIUS 3.0
 #define FLYING_AROUND 0
-#define SEARCH_SIZE 8
+#define SEARCH_SIZE 4
 
 #define RATE 1000
 #define NUMBER_OF_TRACKER_COUNT 22.0
@@ -421,6 +421,8 @@ public:
         // goal-driven behaviour
         w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
         ROS_INFO_STREAM("master at"<<master_pose);
+        
+        
         // run optimization
         w = Formation::calculateFormation(w, master_pose,state_cov,obj_cov);
 

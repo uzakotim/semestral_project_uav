@@ -326,7 +326,7 @@ public:
 
         std_msgs::Header    msg_header  = depth_msg->header;
         std::string         frame_id    = msg_header.frame_id;
-        PrintThatMessageWasReceived (frame_id);
+        // PrintThatMessageWasReceived (frame_id);
 
         cv::Mat cv_image     = ReturnCVMatImageFromMsg     (msg);
         cv::Mat depth_image  = ReturnCVMatImageFromDepthMsg(depth_msg);
@@ -408,7 +408,7 @@ public:
                 state           = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
                 object_coord    = (cv::Mat_<float>(3,1)<< (float)statePt.x, (float)statePt.y, (float)statePt.z);
                 yaw_value       = (float)(yaw->state[0]);
-                ROS_INFO_STREAM("[YAW]"<<yaw_value);
+                // ROS_INFO_STREAM("[YAW]"<<yaw_value);
                 //---------------------CALCULATIONS---------------------------
                 cv::Mat offset  = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
                 // cv::Mat offset  = (cv::Mat_<float>(3,1) << 0,0,0); // 0.2
@@ -421,7 +421,7 @@ public:
                 msg_object.pose.pose.position.z = object_world.at<float>(2);
                 msg_object.pose.covariance = msg_cov_array;
 
-                ROS_INFO_STREAM("[GLOBAL]"<< object_world);       
+                // ROS_INFO_STREAM("[GLOBAL]"<< object_world);       
                 object_pub.publish(msg_object);
                 
                 cv::Mat display = cv_image + drawing;
