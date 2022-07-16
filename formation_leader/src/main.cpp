@@ -30,21 +30,14 @@ using namespace mrs_msgs;
 
 
 #define CONTROLLER_PERIOD 1 // the most optimal value is 1, the less the faster motion
-#define DELTA_MAX 0.5
-
 #define CONTROL_GAIN_GOAL 200 //20
-
 #define CONTROL_GAIN_STATE 0.01  // 1
 // influences how sharp are drone's motions - the lower the sharper
-
-#define NUMBER_OF_TRACKER_COUNT 22.0
 #define CALCULATION_STEPS 50 //150
 #define CALCULATIOM_STEPS_IN_MOTION 10 //30
+#define DELTA_MAX 0.5
 #define RADIUS 3.0
 #define SEARCH_SIZE 8
-
-#define RATE 1000
-#define NUMBER_OF_TRACKER_COUNT 22.0
 
 class Formation
 {
@@ -62,7 +55,6 @@ public:
     //------------TOPICS------------------------------
     //subscribers
     std::string                 sub_pose_topic   = "";
-    std::string                 sub_object_topic = "";
     std::string                 sub_yaw_topic = "";
     std::string                 sub_detection_topic = "";
     //publishers
@@ -203,6 +195,7 @@ public:
         offset_x = x_parameter;
         offset_y = y_parameter;
         offset_z = z_parameter;
+        // Control Mode Parameter 1- Around the origin 2- following object
         around   = around_parameter;
 
         ROS_INFO("Leader Controller Node Initialized Successfully"); 
@@ -417,7 +410,7 @@ public:
         obj_y = (float)(obj->pose.pose.position.y);
         if (obj->pose.pose.position.z == '\0')
         {
-            obj_z = 2.0;
+            obj_z = 3.0;
         }
         else
         {
@@ -454,16 +447,11 @@ public:
             goal_x = 0 + radius * cos(angle);
             goal_y = 0 + radius * sin(angle);
             goal_z = 3.0;
-            // goal_x = center_x;
-            // goal_y = center_y;
-            // ROS_INFO_STREAM("angle: "<<angle<<" radius: "<<radius<<'\n');
             ROS_INFO_STREAM("goal x: "<<goal_x<<" goal y: "<<goal_y<<'\n');
         }
         
 
         //---------------------------------------------------
-
-
 
         if (around==0)
         {
@@ -504,8 +492,6 @@ public:
         {
             ROS_ERROR("Could not publish\n");
         }
-        // Optionally publish error
-        
     }
 
 };
