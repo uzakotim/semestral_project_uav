@@ -29,16 +29,19 @@ using namespace mrs_msgs;
 
 
 
-#define CONTROLLER_PERIOD 0.1
+#define CONTROLLER_PERIOD 1 // the most optimal value is 1, the less the faster motion
 #define DELTA_MAX 0.5
-#define CONTROL_GAIN_GOAL 20 //20
+
+#define CONTROL_GAIN_GOAL 200 //20
+
 #define CONTROL_GAIN_STATE 0.01  // 1
+// influences how sharp are drone's motions - the lower the sharper
+
 #define NUMBER_OF_TRACKER_COUNT 22.0
 #define CALCULATION_STEPS 50 //150
 #define CALCULATIOM_STEPS_IN_MOTION 10 //30
 #define RADIUS 3.0
-#define FLYING_AROUND 0
-#define SEARCH_SIZE 4
+#define SEARCH_SIZE 8
 
 #define RATE 1000
 #define NUMBER_OF_TRACKER_COUNT 22.0
@@ -82,6 +85,9 @@ public:
     float                      offset_x;
     float                      offset_y;
     float                      offset_z;
+
+    // mode
+    int                         around;
 
     float angle = 0.0;
     float searchAngle = -M_PI;
@@ -161,7 +167,7 @@ public:
     ros::ServiceClient client;
     mrs_msgs::Vec4 srv;
 
-    Formation(char** argv, float x_parameter,float y_parameter, float z_parameter)
+    Formation(char** argv, float x_parameter,float y_parameter, float z_parameter, int around_parameter)
     {
         //------------TOPICS-DECLARATIONS----------------
 
@@ -197,6 +203,7 @@ public:
         offset_x = x_parameter;
         offset_y = y_parameter;
         offset_z = z_parameter;
+        around   = around_parameter;
 
         ROS_INFO("Leader Controller Node Initialized Successfully"); 
     }
@@ -247,27 +254,27 @@ public:
      //--------  COST FUNCTIONS ------------------------------
     float CostX(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_x)
     {        
-        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2); //-10 -4  
-        // resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + 0.5*cv::determinant(state_cov)*10e-10 + 0.5*cv::determinant(object_cov)*10e-10; //-10 -4  
+        // resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2)+ 0.5*cv::determinant(state_cov)*10e-1; //-10 -4  
+        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1; //-10 -4  
         return resulting_cost_x;
     }
     float CostY(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_y)
     {
-        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2);  
-        // resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + 0.5*cv::determinant(state_cov)*10e-10 + 0.5*cv::determinant(object_cov)*10e-10;  
+        // resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2)+ 0.5*cv::determinant(state_cov)*10e-1;  
+        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
         return resulting_cost_y;
     }
     float CostZ(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_z)
     {
-        resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2);  
-        // resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + 0.5*cv::determinant(state_cov)*10e-10 + 0.5*cv::determinant(object_cov)*10e-10;  
+        // resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2)+ 0.5*cv::determinant(state_cov)*10e-1;  
+        resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
         return resulting_cost_z;
     }
 
     float CostYaw(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov)
     {
-        resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(3)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3)+offset_z)),2);  
-        // resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(3)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2) + 0.5*cv::determinant(object_cov)*10e-10;  
+        // resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(2)),3) +  CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2);  
+        resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(3)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2) + cv::determinant(object_cov)*10e-1;  
         return resulting_cost_yaw;
     }
     int sign(float x)
@@ -436,7 +443,7 @@ public:
         
         
         // moving around origin -------------------------     
-        if (FLYING_AROUND == 1)
+        if (around == 1)
         {
             angle += M_PI/32;
 
@@ -458,7 +465,7 @@ public:
 
 
 
-        if (FLYING_AROUND==0)
+        if (around==0)
         {
             goal_x = w.at<float>(0);
             goal_y = w.at<float>(1);
@@ -516,14 +523,17 @@ int main(int argc, char** argv)
     std::istringstream              source_cmd_x(argv[1]);
     std::istringstream              source_cmd_y(argv[2]);
     std::istringstream              source_cmd_z(argv[3]);
-    
+    std::istringstream              source_cmd_around(argv[5]);
+
     float offset_parameter_x;
     float offset_parameter_y;
     float offset_parameter_z;
+    int around;
 
     if(!(source_cmd_x>>offset_parameter_x)) return 1;
     if(!(source_cmd_y>>offset_parameter_y)) return 1;
     if(!(source_cmd_z>>offset_parameter_z)) return 1;
+    if(!(source_cmd_around>>around))        return 1;
  
 
     ROS_INFO_STREAM  ("Instanciating Leader Controller\n");
@@ -532,7 +542,7 @@ int main(int argc, char** argv)
     node_name += "_formation_leader";
     
     ros::init(argc, argv, node_name);
-    Formation fc(argv,offset_parameter_x,offset_parameter_y,offset_parameter_z);
+    Formation fc(argv,offset_parameter_x,offset_parameter_y,offset_parameter_z,around);
     ros::spin();
 
     return 0;
