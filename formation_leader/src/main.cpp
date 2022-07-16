@@ -31,12 +31,12 @@ using namespace mrs_msgs;
 
 #define CONTROLLER_PERIOD 1 // the most optimal value is 1, the less the faster motion
 #define CONTROL_GAIN_GOAL 200 //20
-#define CONTROL_GAIN_STATE 0.01  // 1
+#define CONTROL_GAIN_STATE 0.1  // 1
 // influences how sharp are drone's motions - the lower the sharper
 #define CALCULATION_STEPS 50 //150
 #define CALCULATIOM_STEPS_IN_MOTION 10 //30
 #define DELTA_MAX 0.5
-#define RADIUS 3.0
+#define RADIUS 2.0
 #define SEARCH_SIZE 8
 
 class Formation
@@ -93,6 +93,10 @@ public:
 
     float pose_x {0.0};
     float pose_y {0.0};
+
+    float init_x {0.0};
+    float init_y {0.0};
+    float init_z {0.0};
 
     float obj_x {0.0};
     float obj_y {0.0};
@@ -402,14 +406,24 @@ public:
     void callback(const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw, const OdometryConstPtr obj)
     {
         ROS_INFO("Synchronized\n");
+        
         /*-------------MEASUREMENTS----------------*/
         pose_x = (float)(pose->pose.pose.position.x);
         pose_y = (float)(pose->pose.pose.position.y);
 
         obj_x = (float)(obj->pose.pose.position.x);
         obj_y = (float)(obj->pose.pose.position.y);
+
+        if (count < 5)
+        {
+            init_x = pose_x;
+            init_y = pose_y;
+        }
+
         if (obj->pose.pose.position.z == '\0')
         {
+            obj_x = init_x;
+            obj_y = init_y;
             obj_z = 3.0;
         }
         else
@@ -444,8 +458,8 @@ public:
             {
                 angle = 0;
             }
-            goal_x = 0 + radius * cos(angle);
-            goal_y = 0 + radius * sin(angle);
+            goal_x = init_x + radius * cos(angle);
+            goal_y = init_y + radius * sin(angle);
             goal_z = 3.0;
             ROS_INFO_STREAM("goal x: "<<goal_x<<" goal y: "<<goal_y<<'\n');
         }
@@ -492,6 +506,7 @@ public:
         {
             ROS_ERROR("Could not publish\n");
         }
+        count++;
     }
 
 };
