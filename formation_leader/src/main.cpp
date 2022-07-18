@@ -36,7 +36,7 @@ using namespace mrs_msgs;
 #define CALCULATION_STEPS 50 //150
 #define CALCULATIOM_STEPS_IN_MOTION 10 //30
 #define DELTA_MAX 0.5
-#define RADIUS 2.0
+#define RADIUS 0.0
 #define SEARCH_SIZE 8
 
 class Formation
@@ -74,6 +74,11 @@ public:
     float                      offset_x;
     float                      offset_y;
     float                      offset_z;
+
+    float                      init_offset_x;
+    float                      init_offset_y;
+    float                      init_offset_z;
+
 
     // mode
     int                         around;
@@ -196,6 +201,13 @@ public:
         offset_x = x_parameter;
         offset_y = y_parameter;
         offset_z = z_parameter;
+
+        init_offset_x = x_parameter;
+        init_offset_y = y_parameter;
+        init_offset_z = z_parameter;
+
+
+        
         // Control Mode Parameter 1- Around the origin 2- following object
         around   = around_parameter;
 
@@ -408,32 +420,44 @@ public:
         pose_x = (float)(pose->pose.pose.position.x);
         pose_y = (float)(pose->pose.pose.position.y);
 
-        obj_x = (float)(obj->pose.pose.position.x);
-        obj_y = (float)(obj->pose.pose.position.y);
+        
 
-        if (count < 5)
+        if (count < 1)
         {
             init_x = pose_x;
             init_y = pose_y;
         }
 
-        if (obj->pose.pose.position.z == '\0')
+        if (obj->pose.pose.position.x == '\0')
         {
             obj_x = init_x;
             obj_y = init_y;
             obj_z = 3.0;
+
+            offset_x = 0.0;
+            offset_y = 0.0;
+            offset_z = 0.0;
         }
         else
         {
+            obj_x = (float)(obj->pose.pose.position.x);
+            obj_y = (float)(obj->pose.pose.position.y);
             obj_z = (float)(obj->pose.pose.position.z);
-        }
-        obj_yaw = (float)(std::round(atan2(obj_y-pose_y,obj_x-pose_x)));
-        obj_cov = Formation::convertToCov(obj);
+            
+            offset_x = init_offset_x;
+            offset_y = init_offset_y;
+            offset_z = init_offset_z;
         
+            init_x = pose_x;
+            init_y = pose_y;
+        }
+
+        obj_yaw = (float)(atan2(obj_y-pose_y,obj_x-pose_x));
+        
+        obj_cov = Formation::convertToCov(obj);
         master_pose = (cv::Mat_<float>(4,1) << obj_x,obj_y,obj_z,obj_yaw);
+
         state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,yaw->state[0]);
-
-
         state_cov = Formation::convertToCov(pose);
         //------------RPROP----------------
         // goal-driven behaviour
