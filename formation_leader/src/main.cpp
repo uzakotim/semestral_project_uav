@@ -60,9 +60,6 @@ public:
     //publishers
     std::string                 pub_pose_topic   = "";
 
-    //------------MODE--PARAMETER-----------------------
-    int yawSearch {1}; // 1 - ON ; 0 - OFF;
-
 
     //------------OPTIMIZATION-PARAMETERS----------------`
     float                      center_x {0.0};
@@ -143,13 +140,13 @@ public:
     int k{0};  //computing steps
     int count {0};
     
-    cv::Mat w_prev = (cv::Mat_<float>(3,1) <<  0,0,0,0);
+    cv::Mat w_prev = (cv::Mat_<float>(4,1) <<  0,0,0,0);
     cv::Mat w;
     cv::Mat master_pose;
     
     cv::Mat state,state_cov,obj_cov;
 
-    cv::Mat tracker_vector = (cv::Mat_<float>(3,1) << 0,0,0,0);
+    cv::Mat tracker_vector = (cv::Mat_<float>(4,1) << 0,0,0,0);
     
     std::vector<cv::Mat> tracker;
 
