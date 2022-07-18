@@ -98,7 +98,10 @@ public:
     float                      y_previous;
     float                      z_previous;
 
-    
+    float                      init_offset_x;
+    float                      init_offset_y;
+    float                      init_offset_z;
+
     float                      offset_x;
     float                      offset_y;
     float                      offset_z;
@@ -107,7 +110,8 @@ public:
     int                         around;
 
     float angle = 0.0;
-    float searchAngle = -2*M_PI;
+    float searchAngle = -M_PI;
+
 
     float radius = RADIUS;
     
@@ -239,7 +243,10 @@ public:
         offset_x = x_parameter;
         offset_y = y_parameter;
         offset_z = z_parameter;
-
+        
+        init_offset_x = x_parameter;
+        init_offset_y = y_parameter;
+        init_offset_z = z_parameter;
 
         //---Kalman Filter Parameters---->>----
         KF.transitionMatrix = (cv::Mat_<float>(6,6) <<  1,0,0,1,0,0,
@@ -502,11 +509,24 @@ public:
         pose_x = (float)(pose->pose.pose.position.x);
         pose_y = (float)(pose->pose.pose.position.y);
 
+        if (count < 1)
+        {
+            init_x = pose_x;
+            init_y = pose_y;
+        }
+        
+
         // if we see...
         if ( (obj->pose.pose.position.x!='\0') &&  (obj_secondary->pose.pose.position.x!='\0') )
         {
             ROS_INFO_STREAM("We see...\n");
             
+            offset_x = init_offset_x;
+            offset_y = init_offset_y;
+            offset_z = init_offset_z;
+        
+            init_x = pose_x;
+            init_y = pose_y;
 
             PredictUsingKalmanFilter();
             
@@ -571,11 +591,12 @@ public:
         {   
             ROS_INFO_STREAM("I see...\n");
 
-            state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,yaw->state[0]);
-            state_cov = SensFuseTwo::convertToCov(pose);
-            
-            pose_x = (float)(pose->pose.pose.position.x);
-            pose_y = (float)(pose->pose.pose.position.y);
+            offset_x = init_offset_x;
+            offset_y = init_offset_y;
+            offset_z = init_offset_z;
+        
+            init_x = pose_x;
+            init_y = pose_y;
 
             PredictUsingKalmanFilter();
             center3D.x = (float)(obj->pose.pose.position.x);
@@ -635,12 +656,12 @@ public:
         {
             ROS_INFO_STREAM("Another sees...\n");
 
-            //------------MEASUREMENTS------------------------
-            state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,yaw->state[0]);
-            state_cov = SensFuseTwo::convertToCov(pose);
-            
-            pose_x = (float)(pose->pose.pose.position.x);
-            pose_y = (float)(pose->pose.pose.position.y);
+            offset_x = init_offset_x;
+            offset_y = init_offset_y;
+            offset_z = init_offset_z;
+        
+            init_x = pose_x;
+            init_y = pose_y;
 
             PredictUsingKalmanFilter();
             center3D.x = (float)(obj_secondary->pose.pose.position.x);
@@ -699,68 +720,59 @@ public:
         {
             // SEARCH--------------------------------------------------------
             //------------MEASUREMENTS------------------------
-            // state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,yaw->state[0]);
-            // state_cov = SensFuseTwo::convertToCov(pose);
+        
+        
+            obj_x = init_x;
+            obj_y = init_y;
+            obj_z = SEARCH_HEIGHT;
+
+            offset_x = 0.0;
+            offset_y = 0.0;
+            offset_z = 0.0;
+
+            // If I don't see, I search
             
-            // pose_x = (float)(pose->pose.pose.position.x);
-            // pose_y = (float)(pose->pose.pose.position.y);
-            // if (count < 5)
-            // {
-            //     init_x = pose_x;
-            //     init_y = pose_y;
-            // }
-            // obj_x = init_x;
-            // obj_y = init_y;
-            // obj_z = SEARCH_HEIGHT;
+            searchAngle += M_PI/SEARCH_SIZE;
+            ROS_INFO_STREAM("[search]: ["<<searchAngle<<"]");
 
-            // searchAngle += M_PI/SEARCH_SIZE;
-            // ROS_INFO_STREAM("[search]: ["<<searchAngle<<"]");
-
-
-            // if (searchAngle >= 2*M_PI)
-            // {
-            //     searchAngle += -4*M_PI;
-            // }
-            // if (searchAngle <= -2*M_PI)
-            // {
-            //     searchAngle +=  4*M_PI;
-            // }
+            if (searchAngle >= M_PI)
+            {
+                searchAngle = -M_PI;
+            }
+            //---------------------------------------------------------------
+            goal_x = obj_x;
+            goal_y = obj_y;
+            goal_z = obj_z;
+            goal_yaw = searchAngle;
+            //---------------------------------------------------------------
+            ROS_INFO_STREAM("[Destination]: "<<goal_x<<" : "<<goal_y<<" : "<<goal_z);
+            master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
+            //---------------------------------------------------------------
+            ROS_INFO_STREAM("master at"<<master_pose);
+            w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
+            //---------------------------------------------------------------
+            // run optimization
+            w = SensFuseTwo::calculateFormation(w, master_pose, state_cov, obj_cov);
+            //---------------------------------------------------------------
             
-            
-            // //---------------------------------------------------------------
-            // goal_x = obj_x;
-            // goal_y = obj_y;
-            // goal_z = obj_z;
-            // goal_yaw = searchAngle;
-            // //---------------------------------------------------------------
-            // ROS_INFO_STREAM("[Destination]: "<<goal_x<<" : "<<goal_y<<" : "<<goal_z);
-            // master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-            // //---------------------------------------------------------------
-            // ROS_INFO_STREAM("master at"<<master_pose);
-            // w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
-            // //---------------------------------------------------------------
-            // // run optimization
-            // w = SensFuseTwo::calculateFormation(w, master_pose, state_cov, obj_cov);
-            // //---------------------------------------------------------------
-            
-            // // MRS - waypoint --------------------------------------
-            // srv.request.reference.position.x = w.at<float>(0);
-            // srv.request.reference.position.y = w.at<float>(1);
-            // srv.request.reference.position.z = w.at<float>(2);
-            // srv.request.reference.heading    = w.at<float>(3); 
+            // MRS - waypoint --------------------------------------
+            srv.request.reference.position.x = w.at<float>(0);
+            srv.request.reference.position.y = w.at<float>(1);
+            srv.request.reference.position.z = w.at<float>(2);
+            srv.request.reference.heading    = w.at<float>(3); 
 
-            // srv.request.header.stamp = ros::Time::now();
+            srv.request.header.stamp = ros::Time::now();
 
-            // // MRS - waypoint --------------------------------------
-            // if (client.call(srv))
-            // {
-            //     ROS_INFO("Successfull calling service\n");
-            //     sleep(CONTROLLER_PERIOD);
-            // }
-            // else 
-            // {
-            //     ROS_ERROR("Could not publish\n");
-            // }
+            // MRS - waypoint --------------------------------------
+            if (client.call(srv))
+            {
+                ROS_INFO("Successfull calling service\n");
+                sleep(CONTROLLER_PERIOD);
+            }
+            else 
+            {
+                ROS_ERROR("Could not publish\n");
+            }
         } 
         count++;
     }
