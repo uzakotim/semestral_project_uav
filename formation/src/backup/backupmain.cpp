@@ -39,11 +39,11 @@ class Formation
 {
 public:
     ros::NodeHandle nh;   
-    // message_filters::Subscriber<Odometry>     sub_1;
     message_filters::Subscriber<Odometry>     sub_1;
-    message_filters::Subscriber<EstimatedState> sub_2;
+    message_filters::Subscriber<Odometry>     sub_2;
+    message_filters::Subscriber<EstimatedState> sub_3;
 
-    typedef sync_policies::ApproximateTime<Odometry,EstimatedState> MySyncPolicy;
+    typedef sync_policies::ApproximateTime<Odometry, Odometry,EstimatedState> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
     
@@ -109,10 +109,6 @@ public:
     float resulting_cost_y {0};
     float resulting_cost_z {0};
 
-
-    //-------------------------------------------------------
-    float angle {0.0};
-
     
     // ---------OUTPUT MSG-----------------------------------
     boost::array<float,4> goal = {0.0, 0.0, 0.0, 0.0};
@@ -172,12 +168,12 @@ public:
         pub_pose_topic+=argv[4];
         pub_pose_topic+="/control_manager/goto/";
 
-        // sub_1.subscribe(nh,sub_object_topic,1);
-        sub_1.subscribe(nh,sub_pose_topic,1);
-        sub_2.subscribe(nh,sub_yaw_topic,1);
+        sub_1.subscribe(nh,sub_object_topic,1);
+        sub_2.subscribe(nh,sub_pose_topic,1);
+        sub_3.subscribe(nh,sub_yaw_topic,1);
 
-        sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2));
-        sync->registerCallback(boost::bind(&Formation::callback,this,_1,_2));
+        sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2,sub_3));
+        sync->registerCallback(boost::bind(&Formation::callback,this,_1,_2,_3));
                 
         client = nh.serviceClient<mrs_msgs::Vec4>(pub_pose_topic);
         
@@ -191,7 +187,10 @@ public:
         offset_y = y_parameter;
         offset_z = z_parameter;
 
-        ROS_INFO("Motion Red Drone Controller Node Initialized Successfully"); 
+        tracker.push_back(tracker_vector);
+        tracker.push_back(tracker_vector);
+
+        ROS_INFO("Motion Controller Node Initialized Successfully"); 
     }
     cv::Mat convertToCov(const OdometryConstPtr obj)
     {
@@ -235,26 +234,170 @@ public:
                                                         );
         return result;
     }
-    void callback(const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
+    void callback(const OdometryConstPtr& object,const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
-
-        angle += M_PI/8;
-        if (angle >= 2*M_PI)
-        {
-            angle = 0.0;
-        }
         // ROS_INFO("Synchronized\n");
-        srv.request.goal = boost::array<float, 4>{offset_x,offset_y,offset_z,angle};
 
-        if (client.call(srv))
-        {
-            ROS_INFO("Successfull calling service\n");
-            sleep(CONTROLLER_PERIOD);
+        if (object->pose.pose.position.x != '\0'){
+            //------------MEASUREMENTS-----------------------------
+            state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,yaw->state[0]);
+            cv::Mat state_cov = Formation::convertToCov(pose);
+            
+            object_coord = (cv::Mat_<float>(3,1)<< object->pose.pose.position.x,object->pose.pose.position.y,object->pose.pose.position.z);
+            cv::Mat object_cov = Formation::convertToCov(object);
+            //------------TRACKER----------------
+            tracker.push_back(object_coord);
+            count++;
+
+            if (count == 2)
+            {
+                tracker.pop_back();
+                tracker.pop_back();
+            }
+            if  (count > (int) NUMBER_OF_TRACKER_COUNT)
+            {
+                float sum_x{0},sum_y{0},sum_z{0};
+                for (int i=0;i< (int) NUMBER_OF_TRACKER_COUNT;i++)
+                {
+                    sum_x += tracker[i].at<float>(0);
+                    sum_y += tracker[i].at<float>(1);
+                    sum_z += tracker[i].at<float>(2);
+                }
+                master_pose = (cv::Mat_<float>(3,1) << sum_x/NUMBER_OF_TRACKER_COUNT,sum_y/NUMBER_OF_TRACKER_COUNT,sum_z/NUMBER_OF_TRACKER_COUNT);
+                for (int i=0;i<10;i++)
+                {
+                    tracker.pop_back();
+                    count--;
+                }
+
+            }
+            
+            w = (cv::Mat_<float>(3,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2)); 
+            // ROS_INFO_STREAM("[Current state]:" << w);
+            //------------RPROP----------------
+            // goal-driven behaviour
+            if (master_pose.empty() == false)
+            {
+                // ROS_INFO_STREAM("master at"<<master_pose);
+                // run optimization
+                // costs
+                cost_prev_x = CostX(w_prev,w_prev,master_pose,state_cov,object_cov,offset_x);
+                cost_prev_y = CostY(w_prev,w_prev,master_pose,state_cov,object_cov,offset_y);
+                cost_prev_z = CostZ(w_prev,w_prev,master_pose,state_cov,object_cov,offset_z);
+
+                cost_cur_x = CostX(w,w_prev,master_pose,state_cov,object_cov,offset_x);
+                cost_cur_y = CostY(w,w_prev,master_pose,state_cov,object_cov,offset_y);
+                cost_cur_z = CostZ(w,w_prev,master_pose,state_cov,object_cov,offset_z);
+
+                cost_cur.push_back(cost_cur_x);
+                cost_cur.push_back(cost_cur_y);
+                cost_cur.push_back(cost_cur_z);
+
+                cost_prev.push_back(cost_prev_x);
+                cost_prev.push_back(cost_prev_y);
+                cost_prev.push_back(cost_prev_z);
+
+                cost_dif_x = (cost_cur_x - cost_prev_x);
+                cost_dif_y = (cost_cur_y - cost_prev_y);
+                cost_dif_z = (cost_cur_z - cost_prev_z);
+
+
+                step_x = w.at<float>(0) - w_prev.at<float>(0);
+                step_y = w.at<float>(1) - w_prev.at<float>(1);
+                step_z = w.at<float>(2) - w_prev.at<float>(2);
+
+                grad_prev.push_back(cost_dif_x/step_x);
+                grad_prev.push_back(cost_dif_y/step_y);
+                grad_prev.push_back(cost_dif_z/step_z);
+
+                // computing longer when standing
+                if ((std::abs(w.at<float>(0) - w_prev.at<float>(0))<0.2) || (std::abs(w.at<float>(1) - w_prev.at<float>(1))<0.2) || (std::abs(w.at<float>(2) - w_prev.at<float>(2))<0.2))
+                {
+                        k = CALCULATION_STEPS;
+                } else  k = CALCULATIOM_STEPS_IN_MOTION;
+                // -------------------------------------------------- 
+            
+                for(int j=0;j<k;j++)
+                {
+                    // Main RPROP loop
+                    cost_cur_x = CostX(w,w_prev,master_pose,state_cov,object_cov,offset_x);
+                    cost_cur_y = CostY(w,w_prev,master_pose,state_cov,object_cov,offset_y);
+                    cost_cur_z = CostZ(w,w_prev,master_pose,state_cov,object_cov,offset_z);
+
+                    cost_cur[0] = cost_cur_x;
+                    cost_cur[1] = cost_cur_y;
+                    cost_cur[2] = cost_cur_z;
+
+                    cost_dif_x = (cost_cur_x - cost_prev_x);
+                    cost_dif_y = (cost_cur_y - cost_prev_y);
+                    cost_dif_z = (cost_cur_z - cost_prev_z);
+
+                    step_x = w.at<float>(0) - w_prev.at<float>(0);
+                    step_y = w.at<float>(1) - w_prev.at<float>(1);
+                    step_z = w.at<float>(2) - w_prev.at<float>(2);
+                    
+                    grad_cur[0] = cost_dif_x/step_x;
+                    grad_cur[1] = cost_dif_y/step_y;
+                    grad_cur[2] = cost_dif_z/step_z;
+
+                    delta_prev = delta; 
+                    for (int i = 0; i<3;i++)
+                    {
+                        if ((grad_prev[i]*grad_cur[i])>0)
+                        {
+                            delta[i] = std::min(delta_prev[i]*n_pos,delta_max);
+                            w_prev.at<float>(i) = w.at<float>(i);
+                            w.at<float>(i) = w.at<float>(i) - sign(grad_cur[i])*delta[i];
+                            grad_prev[i] = grad_cur[i]; 
+                        } else if ((grad_prev[i]*grad_cur[i])<0)
+                        {
+                            delta[i] = std::max(delta_prev[i]*n_neg,delta_min);
+                            if (cost_cur[i] > cost_prev[i])
+                            {
+                                w_prev.at<float>(i) = w.at<float>(i);
+                                w.at<float>(i) = w.at<float>(i)-sign(grad_prev[i])*delta_prev[i];
+                            }
+                            grad_prev[i] = 0;
+                        } else if ((grad_prev[i]*grad_cur[i])==0)
+                        {
+                            w_prev.at<float>(i) = w.at<float>(i);
+                            w.at<float>(i) = w.at<float>(i) - sign(grad_prev[i])*delta[i];
+                            grad_prev[i] = grad_cur[i];
+                        }
+                    }
+                    
+
+                    cost_prev_x = cost_cur_x;
+                    cost_prev_y = cost_cur_y;
+                    cost_prev_z = cost_cur_z;
+
+                    cost_prev[0] = cost_prev_x;
+                    cost_prev[1] = cost_prev_y;
+                    cost_prev[2] = cost_prev_z;
+                }
+                // ----------------------------------
+                // ROS_INFO_STREAM("[Destination]: x "<<w.at<float>(0)<<" y " <<w.at<float>(1) << " z " <<w.at<float>(2) <<" yaw " <<std::round(atan2(master_pose.at<float>(1)-w.at<float>(1),master_pose.at<float>(0)-w.at<float>(0))));
+                srv.request.goal = boost::array<float, 4>{w.at<float>(0),w.at<float>(1),w.at<float>(2),std::round(atan2(master_pose.at<float>(1)-w.at<float>(1),master_pose.at<float>(0)-w.at<float>(0)))};
+
+                if (client.call(srv))
+                {
+                    ROS_INFO("Successfull calling service\n");
+                    sleep(CONTROLLER_PERIOD);
+                }
+                else 
+                {
+                        ROS_ERROR("Could not publish\n");
+                }
+                // Optionally publish error
+            }
+            else
+            {
+                // ROS_INFO_STREAM("[CALCULATING]:"<<count);
+            }
+
+            w_prev = (cv::Mat_<float>(3,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2)); 
         }
-        else 
-        {
-                ROS_ERROR("Could not publish\n");
-        }
+        
     }
 
 };
@@ -282,7 +425,7 @@ int main(int argc, char** argv)
     if(!(source_cmd_z>>offset_parameter_z)) return 1;
  
 
-    ROS_INFO_STREAM  ("Instanciating Red Drone Motion Controller\n");
+    ROS_INFO_STREAM  ("Instanciating Motion Controller\n");
     std::string node_name = "";
     node_name += argv[4];
     node_name += "_formation_controller";
