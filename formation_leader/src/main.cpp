@@ -38,6 +38,7 @@ using namespace mrs_msgs;
 #define DELTA_MAX 0.5
 #define RADIUS 0.0
 #define SEARCH_SIZE 8
+#define SEARCH_HEIGHT 3.5
 
 class Formation
 {
@@ -481,7 +482,7 @@ public:
             }
             goal_x = init_x + radius * cos(angle);
             goal_y = init_y + radius * sin(angle);
-            goal_z = 3.0;
+            goal_z = SEARCH_HEIGHT;
             ROS_INFO_STREAM("goal x: "<<goal_x<<" goal y: "<<goal_y<<'\n');
         }
         
