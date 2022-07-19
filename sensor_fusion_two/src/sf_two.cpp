@@ -346,20 +346,20 @@ public:
     //--------  COST FUNCTIONS ------------------------------
     float CostX(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_x)
     {        
-        // resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2)+ 0.5*cv::determinant(state_cov)*10e-1; //-10 -4  
-        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1; //-10 -4  
+        // resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1; //-10 -4  
+        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-1; //-10 -4  
         return resulting_cost_x;
     }
     float CostY(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_y)
     {
-        // resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2)+ 0.5*cv::determinant(state_cov)*10e-1;  
-        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
+        // resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
+        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-1;  
         return resulting_cost_y;
     }
     float CostZ(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_z)
     {
-        // resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2)+ 0.5*cv::determinant(state_cov)*10e-1;  
-        resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
+        // resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
+        resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + cv::determinant(state_cov)*10e-1 ;  
         return resulting_cost_z;
     }
 
@@ -567,8 +567,8 @@ public:
             srv.request.reference.position.y = w.at<float>(1);
             srv.request.reference.position.z = w.at<float>(2);
             srv.request.reference.heading    = w.at<float>(3); 
-            ROS_INFO_STREAM("[heading]: "<<w.at<float>(3));
-            ROS_INFO_STREAM("[waypoint]: " <<w);
+            // ROS_INFO_STREAM("[heading]: "<<w.at<float>(3));
+            // ROS_INFO_STREAM("[waypoint]: " <<w);
 
             srv.request.header.stamp = ros::Time::now();
 
