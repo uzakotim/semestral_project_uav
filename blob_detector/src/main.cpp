@@ -32,8 +32,8 @@ using namespace mrs_msgs;
 #define CAMERA_OFFSET 0.2 //0.2
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
-#define BLOB_SIZE 25 // 10
-// 50 - optimal
+#define BLOB_SIZE 15 // 10
+// 25 - optimal
 // 10 - detects UAV motors
 
 class BlobDetector
@@ -371,7 +371,9 @@ public:
                 center3D.x = center.x; //from left to right
                 center3D.y = center.y; // from top to bottom
                 unsigned short val = depth_image.at<unsigned short>(center.y, center.x);
-                center3D.z = static_cast<float>(val);
+                center3D.z = (float)val;
+                
+                // center3D.z = static_cast<float>(val);
                 center3D.z /= 1000.0;
 
                 // uncomment the following to draw contours exactly

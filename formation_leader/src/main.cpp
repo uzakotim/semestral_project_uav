@@ -36,7 +36,7 @@ using namespace mrs_msgs;
 #define CONTROL_GAIN_DISTANCE 0.0 
 #define CONTROL_DISTANCE 2.0 
 
-#define CONTROL_GAIN_STATE_Z 10
+#define CONTROL_GAIN_STATE_Z 100 // 50
 #define CONTROL_GAIN_STATE 0.1  // 1
 // influences how sharp are drone's motions - the lower the sharper
 #define CALCULATION_STEPS 10 //150
@@ -292,7 +292,7 @@ public:
     float CostYaw(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov)
     {
         // resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(2)),3) +  CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2);  
-        resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(3)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2) + cv::determinant(object_cov)*10e-1;  
+        resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(3)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2) + cv::determinant(state_cov)*10e-1  + cv::determinant(object_cov)*10e-1;  
         return resulting_cost_yaw;
     }
     int sign(float x)
