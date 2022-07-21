@@ -27,13 +27,14 @@ using namespace geometry_msgs;
 using namespace nav_msgs;
 using namespace mrs_msgs;
 
-#define CONTROLLER_PERIOD 0.001
+#define CONTROLLER_PERIOD 1
 #define DELTA_MAX 0.5
 #define CONTROL_GAIN_GOAL 20
 #define CONTROL_GAIN_STATE 1
 #define NUMBER_OF_TRACKER_COUNT 22.0
 #define CALCULATION_STEPS 150
 #define CALCULATIOM_STEPS_IN_MOTION 30
+#define RADIUS 1.0
 
 class Formation
 {
@@ -112,6 +113,13 @@ public:
 
     //-------------------------------------------------------
     float angle {0.0};
+    float theta {0.0};
+    
+    float goal_x{0.0};
+    float goal_y{0.0};
+    float goal_z{0.0};
+
+    int   around {0};
 
     
     // ---------OUTPUT MSG-----------------------------------
@@ -145,7 +153,7 @@ public:
     }
 
 
-    Formation(char** argv, float x_parameter,float y_parameter, float z_parameter)
+    Formation(char** argv, float x_parameter,float y_parameter, float z_parameter, int around_parameter)
     {
         //------------TOPICS-DECLARATIONS----------------
         if (argv[5] != NULL) 
@@ -190,6 +198,8 @@ public:
         offset_x = x_parameter;
         offset_y = y_parameter;
         offset_z = z_parameter;
+
+        around = around_parameter;
 
         ROS_INFO("Motion Red Drone Controller Node Initialized Successfully"); 
     }
@@ -238,13 +248,38 @@ public:
     void callback(const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
 
-        angle += M_PI/8;
-        if (angle >= 2*M_PI)
+        
+        
+
+        if (around == 1)
         {
-            angle = 0.0;
+            angle = M_PI/2;
+
+            theta += M_PI/32;
+
+            if (theta >= 2*M_PI)
+            {
+                theta = 0;
+            }
+            goal_x = offset_x + RADIUS * cos(theta);
+            goal_y = offset_y + RADIUS * sin(theta);
+            goal_z = offset_z;
         }
+        else
+        {
+            angle += M_PI/8;
+            if (angle >= 2*M_PI)
+            {
+                angle = 0.0;
+            }
+
+            goal_x = offset_x;
+            goal_y = offset_y;
+            goal_z = offset_z;
+        }
+        ROS_INFO_STREAM("goal x: "<<goal_x<<" goal y: "<<goal_y<<'\n');
         // ROS_INFO("Synchronized\n");
-        srv.request.goal = boost::array<float, 4>{offset_x,offset_y,offset_z,angle};
+        srv.request.goal = boost::array<float, 4>{goal_x,goal_y,goal_z,angle};
 
         if (client.call(srv))
         {
@@ -272,14 +307,17 @@ int main(int argc, char** argv)
     std::istringstream              source_cmd_x(argv[1]);
     std::istringstream              source_cmd_y(argv[2]);
     std::istringstream              source_cmd_z(argv[3]);
+    std::istringstream              source_cmd_around(argv[5]);
     
     float offset_parameter_x;
     float offset_parameter_y;
     float offset_parameter_z;
+    int   around_parameter;
 
     if(!(source_cmd_x>>offset_parameter_x)) return 1;
     if(!(source_cmd_y>>offset_parameter_y)) return 1;
     if(!(source_cmd_z>>offset_parameter_z)) return 1;
+    if(!(source_cmd_around>>around_parameter)) return 1;
  
 
     ROS_INFO_STREAM  ("Instanciating Red Drone Motion Controller\n");
@@ -288,7 +326,7 @@ int main(int argc, char** argv)
     node_name += "_formation_controller";
     
     ros::init(argc, argv, node_name);
-    Formation fc(argv,offset_parameter_x,offset_parameter_y,offset_parameter_z);
+    Formation fc(argv,offset_parameter_x,offset_parameter_y,offset_parameter_z,around_parameter);
     ros::spin();
 
     return 0;

@@ -29,16 +29,18 @@ using namespace mrs_msgs;
 
 
 
-#define CONTROLLER_PERIOD 1 // the most optimal value is 1, the less the faster motion
+#define CONTROLLER_PERIOD 0.01 // the most optimal value is 1, the less the faster motion
 #define CONTROL_GAIN_GOAL 200 //20
+#define CONTROL_GAIN_STATE_Z 10
 #define CONTROL_GAIN_STATE 0.1  // 1
 // influences how sharp are drone's motions - the lower the sharper
-#define CALCULATION_STEPS 50 //150
-#define CALCULATIOM_STEPS_IN_MOTION 10 //30
+#define CALCULATION_STEPS 20 //150
+#define CALCULATIOM_STEPS_IN_MOTION 5 //30
 #define DELTA_MAX 0.5
 #define RADIUS 0.0
-#define SEARCH_SIZE 8
-#define SEARCH_HEIGHT 3.5
+#define SEARCH_SIZE 4
+#define SEARCH_HEIGHT 3.0
+#define WIDTH_FROM_GOAL 25
 
 class Formation
 {
@@ -110,6 +112,8 @@ public:
     float yaw_value {0.0};
     float stored_yaw{0.0};
 
+    std::vector<float> heights {2.5,3.0,3.5,4.0,3.5,3.0};
+
     // ----------Formation controller parameters--------------
 
      // parameters
@@ -145,6 +149,7 @@ public:
 
     int k{0};  //computing steps
     int count {0};
+    int height_count {0};
     
     cv::Mat w_prev = (cv::Mat_<float>(4,1) <<  0,0,0,0);
     cv::Mat w;
@@ -274,7 +279,7 @@ public:
     float CostZ(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_z)
     {
         // resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2)+ 0.5*cv::determinant(state_cov)*10e-1;  
-        resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
+        resulting_cost_z = CONTROL_GAIN_STATE_Z*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
         return resulting_cost_z;
     }
 
@@ -418,59 +423,24 @@ public:
         ROS_INFO("Synchronized\n");
         
         /*-------------MEASUREMENTS----------------*/
-        pose_x = (float)(pose->pose.pose.position.x);
-        pose_y = (float)(pose->pose.pose.position.y);
-
-        
-
         if (count < 1)
         {
             init_x = pose_x;
             init_y = pose_y;
         }
-
-        if (obj->pose.pose.position.x == '\0')
-        {
-            obj_x = init_x;
-            obj_y = init_y;
-            obj_z = 3.0;
-
-            offset_x = 0.0;
-            offset_y = 0.0;
-            offset_z = 0.0;
-        }
-        else
-        {
-            obj_x = (float)(obj->pose.pose.position.x);
-            obj_y = (float)(obj->pose.pose.position.y);
-            obj_z = (float)(obj->pose.pose.position.z);
-            
-            offset_x = init_offset_x;
-            offset_y = init_offset_y;
-            offset_z = init_offset_z;
-        
-            init_x = pose_x;
-            init_y = pose_y;
-        }
-
-        obj_yaw = (float)(atan2(obj_y-pose_y,obj_x-pose_x));
-        
-        obj_cov = Formation::convertToCov(obj);
-        master_pose = (cv::Mat_<float>(4,1) << obj_x,obj_y,obj_z,obj_yaw);
-
+        pose_x = (float)(pose->pose.pose.position.x);
+        pose_y = (float)(pose->pose.pose.position.y);
         state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,yaw->state[0]);
         state_cov = Formation::convertToCov(pose);
-        //------------RPROP----------------
-        // goal-driven behaviour
-        w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
-        ROS_INFO_STREAM("master at"<<master_pose);
         
-        
-        // run optimization
-        w = Formation::calculateFormation(w, master_pose,state_cov,obj_cov);
+        obj_x = (float)(obj->pose.pose.position.x);
+        obj_y = (float)(obj->pose.pose.position.y);
+        obj_z = (float)(obj->pose.pose.position.z);
+        obj_yaw = (float)(atan2(obj_y-pose_y,obj_x-pose_x));
 
-        
-        
+        master_pose = (cv::Mat_<float>(4,1) << obj_x,obj_y,obj_z,obj_yaw);
+        obj_cov = Formation::convertToCov(obj);
+
         // moving around origin -------------------------     
         if (around == 1)
         {
@@ -485,37 +455,69 @@ public:
             goal_z = SEARCH_HEIGHT;
             ROS_INFO_STREAM("goal x: "<<goal_x<<" goal y: "<<goal_y<<'\n');
         }
-        
-
-        //---------------------------------------------------
-
-        if (around==0)
+        else
         {
-            goal_x = w.at<float>(0);
-            goal_y = w.at<float>(1);
-            goal_z = w.at<float>(2);
-        }
-
-        if (obj->pose.pose.position.x == '\0')
-        {
-            // If I don't see, I search
-            
-            searchAngle += M_PI/SEARCH_SIZE;
-            ROS_INFO_STREAM("[search]: ["<<searchAngle<<"]");
-
-            if (searchAngle >= M_PI)
+            if (obj->pose.pose.position.x != '\0')
             {
-                searchAngle = -M_PI;
-            }
-            
-            goal_yaw = searchAngle;
+                // If I found object         
+                searchAngle = obj_yaw;
+                //------------RPROP----------------
+                // goal-driven behaviour
+                w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
+                // run optimization
+                w = Formation::calculateFormation(w, master_pose,state_cov,obj_cov);
+                goal_x   = w.at<float>(0);
+                goal_y   = w.at<float>(1);
+                goal_z   = w.at<float>(2);
+                goal_yaw = w.at<float>(3);
+            }        
+            else
+            {
+                // If I didn't find it, I search
+                if (count%20 == 0)
+                {
+                    searchAngle += M_PI/SEARCH_SIZE;
+                    ROS_INFO_STREAM("[search]: ["<<searchAngle<<"]");
 
-        }else
-        {
-            goal_yaw = w.at<float>(3);
-            searchAngle = goal_yaw;
+                    if (searchAngle >= M_PI)
+                    {
+                        searchAngle = -M_PI;
+                    }
+                    
+                    goal_yaw = searchAngle;
+                 
+                    // goal_z = heights[height_count];
+                    
+                    // height_count++;
+                    // if (height_count>=heights.size())
+                    // {
+                        // height_count = 0;
+                    // }
+                }
+                // but I must continue to move
+
+                if (master_pose.at<float>(0)!='\0')
+                {
+                    // run optimization
+                    w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
+                    w = Formation::calculateFormation(w, master_pose,state_cov,obj_cov);
+                    goal_x   = w.at<float>(0);
+                    goal_y   = w.at<float>(1);
+                    goal_z   = w.at<float>(2);
+                    goal_yaw = w.at<float>(3);
+                }
+                else
+                {
+                    goal_x = pose_x;
+                    goal_y = pose_y;
+                    goal_z = 3.0;
+                }
+                
+
+            }
         }
 
+        
 
         srv.request.goal = boost::array<float, 4>{goal_x,goal_y,goal_z,goal_yaw};
       

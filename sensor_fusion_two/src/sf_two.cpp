@@ -22,11 +22,11 @@
 #include <ros/ros.h>
 #include "ros/service_client.h"
 
-#define RATE 1000
 #define CONTROLLER_PERIOD 1
 #define DELTA_MAX 0.5
 #define CONTROL_GAIN_GOAL 200
-#define CONTROL_GAIN_STATE 0.1
+#define CONTROL_GAIN_STATE 0.01  // 1
+// influences how sharp are drone's motions - the lower the sharper
 #define NUMBER_OF_TRACKER_COUNT 22.0
 #define CALCULATION_STEPS 50 //150
 #define CALCULATIOM_STEPS_IN_MOTION 10 //30
