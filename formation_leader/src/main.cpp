@@ -28,19 +28,21 @@ using namespace nav_msgs;
 using namespace mrs_msgs;
 
 
+#define CALCULATION_STEPS 10 //150
+#define CALCULATIOM_STEPS_IN_MOTION 5 //30
 
-#define CONTROLLER_PERIOD 0.1 // the most optimal value is 1, the less the faster motion
+#define CONTROLLER_PERIOD 0.1 
+// the most optimal value is 1, the less the faster motion
 
 #define CONTROL_GAIN_GOAL 200 //20
 
 #define CONTROL_GAIN_DISTANCE 0.0 
 #define CONTROL_DISTANCE 2.0 
 
-#define CONTROL_GAIN_STATE_Z 100 // 50
+#define CONTROL_GAIN_STATE_Z 0.01 // 100
 #define CONTROL_GAIN_STATE 0.1  // 1
 // influences how sharp are drone's motions - the lower the sharper
-#define CALCULATION_STEPS 10 //150
-#define CALCULATIOM_STEPS_IN_MOTION 5 //30
+
 #define DELTA_MAX 0.5 //0.5
 // determines how fast drone optimises - the smaller the faster
 #define RADIUS 0.0
@@ -468,9 +470,8 @@ public:
                 // If I found object         
                 searchAngle = obj_yaw;
                 //------------RPROP----------------
-                // goal-driven behaviour
-                w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
                 // run optimization
+                w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3));     
                 w = Formation::calculateFormation(w, master_pose,state_cov,obj_cov);
                 goal_x   = w.at<float>(0);
                 goal_y   = w.at<float>(1);
@@ -490,7 +491,8 @@ public:
                     {
                         searchAngle = -M_PI;
                     }
-                 
+
+
                     // goal_z = heights[height_count];
                     
                     // height_count++;
@@ -499,7 +501,6 @@ public:
                         // height_count = 0;
                     // }
                 }
-                // but I must continue to move
 
                 if (master_pose.at<float>(0)!='\0')
                 {
@@ -519,7 +520,6 @@ public:
                     goal_yaw = obj_yaw;
                 }
                 
-
             }
         }
 
