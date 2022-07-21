@@ -29,14 +29,20 @@ using namespace mrs_msgs;
 
 
 
-#define CONTROLLER_PERIOD 0.01 // the most optimal value is 1, the less the faster motion
+#define CONTROLLER_PERIOD 0.1 // the most optimal value is 1, the less the faster motion
+
 #define CONTROL_GAIN_GOAL 200 //20
+
+#define CONTROL_GAIN_DISTANCE 0.0 
+#define CONTROL_DISTANCE 2.0 
+
 #define CONTROL_GAIN_STATE_Z 10
 #define CONTROL_GAIN_STATE 0.1  // 1
 // influences how sharp are drone's motions - the lower the sharper
-#define CALCULATION_STEPS 20 //150
+#define CALCULATION_STEPS 10 //150
 #define CALCULATIOM_STEPS_IN_MOTION 5 //30
-#define DELTA_MAX 0.5
+#define DELTA_MAX 0.5 //0.5
+// determines how fast drone optimises - the smaller the faster
 #define RADIUS 0.0
 #define SEARCH_SIZE 4
 #define SEARCH_HEIGHT 3.0
@@ -267,13 +273,13 @@ public:
     float CostX(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_x)
     {        
         // resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2)+ 0.5*cv::determinant(state_cov)*10e-1; //-10 -4  
-        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1; //-10 -4  
+        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_DISTANCE*(CONTROL_DISTANCE - std::pow((w.at<float>(0) - (master_pose.at<float>(0))),2)) +CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1; //-10 -4  
         return resulting_cost_x;
     }
     float CostY(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_y)
     {
         // resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2)+ 0.5*cv::determinant(state_cov)*10e-1;  
-        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
+        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2)  + CONTROL_GAIN_DISTANCE*(CONTROL_DISTANCE - std::pow((w.at<float>(1) - (master_pose.at<float>(1))),2))+ CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
         return resulting_cost_y;
     }
     float CostZ(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_z)
@@ -473,8 +479,9 @@ public:
             }        
             else
             {
+                goal_yaw = searchAngle;
                 // If I didn't find it, I search
-                if (count%20 == 0)
+                if (count%2 == 0)
                 {
                     searchAngle += M_PI/SEARCH_SIZE;
                     ROS_INFO_STREAM("[search]: ["<<searchAngle<<"]");
@@ -483,8 +490,6 @@ public:
                     {
                         searchAngle = -M_PI;
                     }
-                    
-                    goal_yaw = searchAngle;
                  
                     // goal_z = heights[height_count];
                     
@@ -511,6 +516,7 @@ public:
                     goal_x = pose_x;
                     goal_y = pose_y;
                     goal_z = 3.0;
+                    goal_yaw = obj_yaw;
                 }
                 
 

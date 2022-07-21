@@ -34,7 +34,7 @@ using namespace mrs_msgs;
 #define NUMBER_OF_TRACKER_COUNT 22.0
 #define CALCULATION_STEPS 150
 #define CALCULATIOM_STEPS_IN_MOTION 30
-#define RADIUS 1.0
+#define RADIUS 2.0
 
 class Formation
 {
