@@ -9,12 +9,13 @@
 
 #include <nav_msgs/Odometry.h>
 #include <cmath>
-#include <ros/ros.h>
+
 // include opencv2
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/tracking.hpp>
 #include <string.h>
+
 #include <mrs_msgs/ReferenceStampedSrv.h>
 #include <mrs_msgs/EstimatedState.h>
 
@@ -43,7 +44,6 @@
 #define RADIUS 0.0
 #define SEARCH_SIZE 8
 #define SEARCH_HEIGHT 3.0
-#define WIDTH_FROM_GOAL 25
 
 
 
@@ -631,14 +631,7 @@ public:
         else if (obj_secondary->pose.pose.position.x!='\0')
         
         {
-            ROS_INFO_STREAM("Another sees...\n");
-
-            offset_x = init_offset_x;
-            offset_y = init_offset_y;
-            offset_z = init_offset_z;
-        
-            init_x = pose_x;
-            init_y = pose_y;
+            ROS_INFO_STREAM("Another sees...\n"); 
 
             PredictUsingKalmanFilter();
             center3D.x = (float)(obj_secondary->pose.pose.position.x);

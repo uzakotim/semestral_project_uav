@@ -27,7 +27,7 @@ using namespace geometry_msgs;
 using namespace nav_msgs;
 using namespace mrs_msgs;
 
-#define CONTROLLER_PERIOD 2
+#define CONTROLLER_PERIOD 3
 #define DELTA_MAX 0.5
 #define CONTROL_GAIN_GOAL 20
 #define CONTROL_GAIN_STATE 1
