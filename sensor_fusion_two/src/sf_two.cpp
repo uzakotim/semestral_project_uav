@@ -22,17 +22,28 @@
 #include <ros/ros.h>
 #include "ros/service_client.h"
 
-#define CONTROLLER_PERIOD 1
-#define DELTA_MAX 0.5
-#define CONTROL_GAIN_GOAL 200
-#define CONTROL_GAIN_STATE 0.01  // 1
+
+#define CALCULATION_STEPS 10 //150
+#define CALCULATIOM_STEPS_IN_MOTION 5 //30
+
+#define CONTROLLER_PERIOD 0.1 
+// the most optimal value is 1, the less the faster motion
+
+#define CONTROL_GAIN_GOAL 200 //20
+
+#define CONTROL_GAIN_DISTANCE 0.0 
+#define CONTROL_DISTANCE 2.0 
+
+#define CONTROL_GAIN_STATE_Z 0.01 // 100
+#define CONTROL_GAIN_STATE 0.1  // 1
 // influences how sharp are drone's motions - the lower the sharper
-#define NUMBER_OF_TRACKER_COUNT 22.0
-#define CALCULATION_STEPS 50 //150
-#define CALCULATIOM_STEPS_IN_MOTION 10 //30
+
+#define DELTA_MAX 0.5 //0.5
+// determines how fast drone optimises - the smaller the faster
+#define RADIUS 0.0
 #define SEARCH_SIZE 8
-#define RADIUS 2.0
 #define SEARCH_HEIGHT 3.0
+#define WIDTH_FROM_GOAL 25
 
 
 
@@ -158,8 +169,6 @@ public:
     float step_y{0};
     float step_z{0};
     float step_yaw{0};
-
-    
 
     std::vector<float> cost_cur;
     std::vector<float> cost_prev;
@@ -346,30 +355,29 @@ public:
     //--------  COST FUNCTIONS ------------------------------
     float CostX(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_x)
     {        
-        // resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1; //-10 -4  
-        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-1; //-10 -4  
+        // resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2)+ 0.5*cv::determinant(state_cov)*10e-1; //-10 -4  
+        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_DISTANCE*(CONTROL_DISTANCE - std::pow((w.at<float>(0) - (master_pose.at<float>(0))),2)) +CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1; //-10 -4  
         return resulting_cost_x;
     }
     float CostY(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_y)
     {
-        // resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
-        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-1;  
+        // resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2)+ 0.5*cv::determinant(state_cov)*10e-1;  
+        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2)  + CONTROL_GAIN_DISTANCE*(CONTROL_DISTANCE - std::pow((w.at<float>(1) - (master_pose.at<float>(1))),2))+ CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
         return resulting_cost_y;
     }
     float CostZ(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_z)
     {
-        // resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
-        resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + cv::determinant(state_cov)*10e-1 ;  
+        // resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2)+ 0.5*cv::determinant(state_cov)*10e-1;  
+        resulting_cost_z = CONTROL_GAIN_STATE_Z*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + cv::determinant(state_cov)*10e-1 + cv::determinant(object_cov)*10e-1;  
         return resulting_cost_z;
     }
 
     float CostYaw(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov)
     {
-        resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(2)),3) +  CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2);  
-        // resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(3)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2) + cv::determinant(object_cov)*10e-1;  
+        // resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(2)),3) +  CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2);  
+        resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(3)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2) + cv::determinant(state_cov)*10e-1  + cv::determinant(object_cov)*10e-1;  
         return resulting_cost_yaw;
     }
-
     int sign(float x)
     {
         if (x > 0) return 1;
@@ -498,6 +506,36 @@ public:
         return w;
     }
 
+    void moveDrone(cv::Mat state,cv::Mat master_pose, cv::Mat state_cov,cv::Mat obj_cov)
+    {
+        //MOTION PART----------------------------------------
+            w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
+            //---------------------------------------------------------------
+            
+            // run optimization
+            w = SensFuseTwo::calculateFormation(w, master_pose, state_cov, obj_cov);
+            //---------------------------------------------------------------
+            // MRS - waypoint --------------------------------------
+            srv.request.reference.position.x = w.at<float>(0);
+            srv.request.reference.position.y = w.at<float>(1);
+            srv.request.reference.position.z = w.at<float>(2);
+            srv.request.reference.heading    = w.at<float>(3); 
+
+            srv.request.header.stamp = ros::Time::now();
+
+            // MRS - waypoint --------------------------------------
+            if (client.call(srv))
+            {
+                ROS_INFO("Successfull calling service\n");
+                sleep(CONTROLLER_PERIOD);
+            }
+            else 
+            {
+                ROS_ERROR("Could not publish\n");
+            }
+            //---------------------------------------------------------------
+
+    }
 
     void callback_two(const OdometryConstPtr& obj,const OdometryConstPtr& obj_secondary, const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
@@ -520,14 +558,8 @@ public:
         if ( (obj->pose.pose.position.x!='\0') &&  (obj_secondary->pose.pose.position.x!='\0') )
         {
             ROS_INFO_STREAM("We see...\n");
-            
-            offset_x = init_offset_x;
-            offset_y = init_offset_y;
-            offset_z = init_offset_z;
-        
-            init_x = pose_x;
-            init_y = pose_y;
-
+            // SENSING PART -------------------
+            //---------------------------------
             PredictUsingKalmanFilter();
             
             center3D.x = (float)((obj->pose.pose.position.x + obj_secondary->pose.pose.position.x)/2.0);
@@ -545,58 +577,26 @@ public:
             SetMeasurement(center3D);
 
             cv::Point3f statePt = UpdateKalmanFilter(measurement);
-            //---------------------------------------------------------------
             goal_x = (float)statePt.x;
             goal_y = (float)statePt.y;
             goal_z = (float)statePt.z;
             goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
             searchAngle = goal_yaw;
-            //---------------------------------------------------------------
-            ROS_INFO_STREAM("[Destination]: "<<goal_x<<" : "<<goal_y<<" : "<<goal_z);
             master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-            //---------------------------------------------------------------
-            ROS_INFO_STREAM("master at"<<master_pose);
-            w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
-            //---------------------------------------------------------------
+            //----------------------------------------------------------------------------    
             
-            // run optimization
-            w = SensFuseTwo::calculateFormation(w, master_pose, state_cov, obj_cov);
-            //---------------------------------------------------------------
-            // MRS - waypoint --------------------------------------
-            srv.request.reference.position.x = w.at<float>(0);
-            srv.request.reference.position.y = w.at<float>(1);
-            srv.request.reference.position.z = w.at<float>(2);
-            srv.request.reference.heading    = w.at<float>(3); 
-            // ROS_INFO_STREAM("[heading]: "<<w.at<float>(3));
-            // ROS_INFO_STREAM("[waypoint]: " <<w);
+            SensFuseTwo::moveDrone(state,master_pose,state_cov,obj_cov);
 
-            srv.request.header.stamp = ros::Time::now();
 
-            // MRS - waypoint --------------------------------------
-            if (client.call(srv))
-            {
-                ROS_INFO("Successfull calling service\n");
-                sleep(CONTROLLER_PERIOD);
-            }
-            else 
-            {
-                ROS_ERROR("Could not publish\n");
-            }
-            //---------------------------------------------------------------
+            
         }
 
 
         // if I see...
         else if (obj->pose.pose.position.x!='\0')
         {   
+            // SENSING PART -------------------------------------------------
             ROS_INFO_STREAM("I see...\n");
-
-            offset_x = init_offset_x;
-            offset_y = init_offset_y;
-            offset_z = init_offset_z;
-        
-            init_x = pose_x;
-            init_y = pose_y;
 
             PredictUsingKalmanFilter();
             center3D.x = (float)(obj->pose.pose.position.x);
@@ -618,35 +618,12 @@ public:
             goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
             searchAngle = goal_yaw;
             //---------------------------------------------------------------
-            ROS_INFO_STREAM("[Destination]: "<<goal_x<<" : "<<goal_y<<" : "<<goal_z);
             master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-            w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
-            // run optimization
-            w = SensFuseTwo::calculateFormation(w, master_pose, state_cov, obj_cov);
-            //---------------------------------------------------------------
-
             
-            // MRS - waypoint --------------------------------------
-            srv.request.reference.position.x = w.at<float>(0);
-            srv.request.reference.position.y = w.at<float>(1);
-            srv.request.reference.position.z = w.at<float>(2);
-            srv.request.reference.heading    = w.at<float>(3); 
-            ROS_INFO_STREAM("[heading]: "<<w.at<float>(3));
-            ROS_INFO_STREAM("[waypoint]: " <<w);
-
-            srv.request.header.stamp = ros::Time::now();
-
-            // MRS - waypoint --------------------------------------
-            if (client.call(srv))
-            {
-                ROS_INFO("Successfull calling service\n");
-                sleep(CONTROLLER_PERIOD);
-            }
-            else 
-            {
-                ROS_ERROR("Could not publish\n");
-            }
-            //---------------------------------------------------------------
+            
+            
+            SensFuseTwo::moveDrone(state,master_pose,state_cov,obj_cov);
+        
         }
 
 
@@ -683,83 +660,37 @@ public:
             goal_z = (float)statePt.z;
             goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
             searchAngle = goal_yaw;
-            //---------------------------------------------------------------
-            ROS_INFO_STREAM("[Destination]: "<<goal_x<<" : "<<goal_y<<" : "<<goal_z);
             master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
             //---------------------------------------------------------------
-            ROS_INFO_STREAM("master at"<<master_pose);
-            w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
-            //---------------------------------------------------------------
-            // run optimization
-            w = SensFuseTwo::calculateFormation(w, master_pose, state_cov, obj_cov);
-            //---------------------------------------------------------------
+
             
-            // MRS - waypoint --------------------------------------
-            srv.request.reference.position.x = w.at<float>(0);
-            srv.request.reference.position.y = w.at<float>(1);
-            srv.request.reference.position.z = w.at<float>(2);
-            srv.request.reference.heading    = w.at<float>(3); 
-            ROS_INFO_STREAM("[heading]: "<<w.at<float>(3));
-            ROS_INFO_STREAM("[waypoint]: " <<w);
-
-            srv.request.header.stamp = ros::Time::now();
-
-            // MRS - waypoint --------------------------------------
-            if (client.call(srv))
-            {
-                ROS_INFO("Successfull calling service\n");
-                sleep(CONTROLLER_PERIOD);
-            }
-            else 
-            {
-                ROS_ERROR("Could not publish\n");
-            }
-            //---------------------------------------------------------------
+            SensFuseTwo::moveDrone(state,master_pose,state_cov,obj_cov);
         }  
         else
         {
             // SEARCH--------------------------------------------------------
-            //------------MEASUREMENTS------------------------
-        
-        
-            obj_x = init_x;
-            obj_y = init_y;
-            obj_z = SEARCH_HEIGHT;
-
-            offset_x = 0.0;
-            offset_y = 0.0;
-            offset_z = 0.0;
-
-            // If I don't see, I search
-            
+            ROS_INFO_STREAM("I search...\n");
             searchAngle += M_PI/SEARCH_SIZE;
-            ROS_INFO_STREAM("[search]: ["<<searchAngle<<"]");
+            // ROS_INFO_STREAM("[angle]: ["<<searchAngle<<"]");
 
-            if (searchAngle >= M_PI)
-            {
-                searchAngle = -M_PI;
-            }
-            //---------------------------------------------------------------
-            goal_x = obj_x;
-            goal_y = obj_y;
-            goal_z = obj_z;
-            goal_yaw = searchAngle;
-            //---------------------------------------------------------------
-            ROS_INFO_STREAM("[Destination]: "<<goal_x<<" : "<<goal_y<<" : "<<goal_z);
-            master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-            //---------------------------------------------------------------
-            ROS_INFO_STREAM("master at"<<master_pose);
-            w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
-            //---------------------------------------------------------------
-            // run optimization
-            w = SensFuseTwo::calculateFormation(w, master_pose, state_cov, obj_cov);
-            //---------------------------------------------------------------
+            // goal_z = heights[height_count];
+                
+            // height_count++;
+            // if (height_count>=heights.size())
+            // {
+                // height_count = 0;
+            // }
+
+            goal_x = pose_x;
+            goal_y = pose_y;
+            goal_z = 3.0;
+            goal_yaw = yaw->state[0]+searchAngle;
             
             // MRS - waypoint --------------------------------------
-            srv.request.reference.position.x = w.at<float>(0);
-            srv.request.reference.position.y = w.at<float>(1);
-            srv.request.reference.position.z = w.at<float>(2);
-            srv.request.reference.heading    = w.at<float>(3); 
+            srv.request.reference.position.x = goal_x;
+            srv.request.reference.position.y = goal_y;
+            srv.request.reference.position.z = goal_z;
+            srv.request.reference.heading    = goal_yaw; 
 
             srv.request.header.stamp = ros::Time::now();
 
@@ -773,6 +704,8 @@ public:
             {
                 ROS_ERROR("Could not publish\n");
             }
+            //---------------------------------------------------------------
+
         } 
         count++;
     }
