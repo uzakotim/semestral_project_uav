@@ -492,7 +492,8 @@ public:
                         searchAngle = -M_PI;
                     }
 
-
+                    // uncomment in case rotation around z is needed
+                    
                     // goal_z = heights[height_count];
                     
                     // height_count++;
@@ -517,7 +518,7 @@ public:
                     goal_x = pose_x;
                     goal_y = pose_y;
                     goal_z = 3.0;
-                    goal_yaw = obj_yaw;
+                    goal_yaw = searchAngle; // instead of obj_yaw
                 }
                 
             }

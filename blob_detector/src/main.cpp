@@ -372,8 +372,6 @@ public:
                 center3D.y = center.y; // from top to bottom
                 unsigned short val = depth_image.at<unsigned short>(center.y, center.x);
                 center3D.z = (float)val;
-                
-                // center3D.z = static_cast<float>(val);
                 center3D.z /= 1000.0;
 
                 // uncomment the following to draw contours exactly
@@ -398,9 +396,6 @@ public:
                 cv::circle  (drawing, statePt2D, int(radius), detection_color, 2 );
                 cv::circle  (drawing, statePt2D, 5, detection_color, 10);
 
-                // msg_object.pose.pose.position.x = (double)statePt.x;
-                // msg_object.pose.pose.position.y = (double)statePt.y;
-                // msg_object.pose.pose.position.z = (double)statePt.z;
 
                 // Set covariance
 
@@ -415,7 +410,6 @@ public:
                 // ROS_INFO_STREAM("[YAW]"<<yaw_value);
                 //---------------------CALCULATIONS---------------------------
                 cv::Mat offset  = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
-                // cv::Mat offset  = (cv::Mat_<float>(3,1) << 0,0,0); // 0.2
                 object_world = ObjectCoordinateToWorld(object_coord,yaw_value,state,offset);
                 // ---------------------MSG-----------------------------------------------
                 msg_object.header.frame_id = counter;
@@ -451,7 +445,7 @@ public:
             msg_object.pose.covariance = msg_cov_array;
             msg_object.header.frame_id = std::to_string(counter);
             msg_object.header.stamp = ros::Time::now();
-            ROS_INFO_STREAM("[CANNOT SEE]");       
+            ROS_INFO_STREAM("[CANNOT DETECT]");       
             object_pub.publish(msg_object);
 
             rate.sleep();
@@ -471,7 +465,7 @@ public:
             msg_object.pose.covariance = msg_cov_array;
             msg_object.header.frame_id = std::to_string(counter);
             msg_object.header.stamp = ros::Time::now();
-            ROS_INFO_STREAM("[CANNOT SEE]");       
+            ROS_INFO_STREAM("[CANNOT DETECT]");       
             object_pub.publish(msg_object);
 
             rate.sleep();

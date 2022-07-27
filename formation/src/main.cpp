@@ -40,7 +40,6 @@ class Formation
 {
 public:
     ros::NodeHandle nh;   
-    // message_filters::Subscriber<Odometry>     sub_1;
     message_filters::Subscriber<Odometry>     sub_1;
     message_filters::Subscriber<EstimatedState> sub_2;
 
@@ -58,58 +57,6 @@ public:
     std::string                 pub_pose_topic   = "";
 
 
-    //------------OPTIMIZATION-PARAMETERS----------------
-
-    int count {0};
-    cv::Mat state,state_cov,object_coord,object_cov;
-    cv::Mat tracker_vector = (cv::Mat_<float>(3,1) << 0,0,0);
-    std::vector<cv::Mat> tracker;
-    
-    cv::Mat w_prev = (cv::Mat_<float>(3,1) <<  0,0,0);
-    cv::Mat w;
-    cv::Mat master_pose;
-
-    // parameters
-    float n_pos {1.2};
-    float n_neg {0.5};
-    float delta_max {DELTA_MAX};
-    float delta_min {0.001}; // 0.000001
-   
-    float cost_prev_x{0},cost_cur_x{0};
-    float cost_prev_y{0},cost_cur_y{0};
-    float cost_prev_z{0},cost_cur_z{0};
-    float cost_dif_x{0};
-    float cost_dif_y{0};
-    float cost_dif_z{0};
-    float step_x{0};
-    float step_y{0};
-    float step_z{0};
-
-    
-
-    std::vector<float> cost_cur;
-    std::vector<float> cost_prev;
-    std::vector<float> grad_cur {0,0,0}; // 0 0 0 
-    std::vector<float> grad_prev {0,0,0}; // 0 0 0
-
-    std::vector<float> delta {0.5,0.5,0.5};
-    std::vector<float> delta_prev {0.5,0.5,0.5};
-
-    int k{0};  //computing steps
-    
-    float                      x_previous;
-    float                      y_previous;
-    float                      z_previous;
-
-    
-    float                      offset_x;
-    float                      offset_y;
-    float                      offset_z;
-
-    float resulting_cost_x {0};
-    float resulting_cost_y {0};
-    float resulting_cost_z {0};
-
 
     //-------------------------------------------------------
     float angle {0.0};
@@ -120,38 +67,14 @@ public:
     float goal_z{0.0};
 
     int   around {0};
-
     
+    float                      offset_x;
+    float                      offset_y;
+    float                      offset_z;
     // ---------OUTPUT MSG-----------------------------------
     boost::array<float,4> goal = {0.0, 0.0, 0.0, 0.0};
     ros::ServiceClient client;
     mrs_msgs::Vec4 srv;
-    //--------  COST FUNCTIONS ------------------------------
-    float CostX(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_x)
-    {        
-        // resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2); //-10 -4  
-        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + 0.5*cv::determinant(state_cov)*10e-20 + 0.5*cv::determinant(object_cov)*10e-10; //-10 -4  
-        return resulting_cost_x;
-    }
-    float CostY(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_y)
-    {
-        // resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2);  
-        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + 0.5*cv::determinant(state_cov)*10e-20 + 0.5*cv::determinant(object_cov)*10e-10;  
-        return resulting_cost_y;
-    }
-    float CostZ(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_z)
-    {
-        // resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2);  
-        resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + 0.5*cv::determinant(state_cov)*10e-20 + 0.5*cv::determinant(object_cov)*10e-10;  
-        return resulting_cost_z;
-    }
-    int sign(float x)
-    {
-        if (x > 0) return 1;
-        if (x < 0) return -1;
-        return 0;
-    }
-
 
     Formation(char** argv, float x_parameter,float y_parameter, float z_parameter, int around_parameter)
     {
@@ -188,11 +111,6 @@ public:
         sync->registerCallback(boost::bind(&Formation::callback,this,_1,_2));
                 
         client = nh.serviceClient<mrs_msgs::Vec4>(pub_pose_topic);
-        
-         // Gradient Descent Parameters
-        x_previous = initial_state.x;
-        y_previous = initial_state.y;
-        z_previous = initial_state.z;
 
         // Taking parameters to set robot position
         offset_x = x_parameter;

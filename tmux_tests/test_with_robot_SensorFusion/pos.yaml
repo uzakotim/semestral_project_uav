@@ -6,8 +6,8 @@ uav1:
   heading: 1
 uav2:
   id: 2
-  x: 5
-  y: 5
+  x: 0
+  y: -5
   z: 3
   heading: 0
 uav3:
