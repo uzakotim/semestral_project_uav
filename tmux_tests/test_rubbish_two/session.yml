@@ -18,28 +18,28 @@ windows:
         - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForSimulation; roslaunch mrs_uav_status status.launch
         - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForSimulation; roslaunch mrs_uav_status status.launch
         - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForSimulation; roslaunch mrs_uav_status status.launch
-        - export UAV_NAME="uav${UAV_NUMBERS[4]}"; waitForSimulation; roslaunch mrs_uav_status status.launch
+        # - export UAV_NAME="uav${UAV_NUMBERS[4]}"; waitForSimulation; roslaunch mrs_uav_status status.launch
   - spawn:
       layout: tiled
       panes:
         - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[1]} $UAV_TYPE_LEADER --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos 0 0 0 0.0"
         - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[2]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos 4 4 0 0.0"
         - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[3]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos 2 2 0 0.0"
-        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[4]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos -3 -3 0 0.0"
+        # - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[4]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos -3 -3 0 0.0"
   - control:
       layout: tiled
       panes:
         - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; roslaunch mrs_uav_general core.launch config_uav_manager:=./custom_configs/uav_manager.yaml
         - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; roslaunch mrs_uav_general core.launch config_uav_manager:=./custom_configs/uav_manager.yaml
         - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; roslaunch mrs_uav_general core.launch config_uav_manager:=./custom_configs/uav_manager.yaml
-        - export UAV_NAME="uav${UAV_NUMBERS[4]}"; waitForOdometry; roslaunch mrs_uav_general core.launch config_uav_manager:=./custom_configs/uav_manager.yaml
+        # - export UAV_NAME="uav${UAV_NUMBERS[4]}"; waitForOdometry; roslaunch mrs_uav_general core.launch config_uav_manager:=./custom_configs/uav_manager.yaml
   - automatic_start:
       layout: tiled
       panes:
         - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
         - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
         - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
-        - export UAV_NAME="uav${UAV_NUMBERS[4]}"; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
+        # - export UAV_NAME="uav${UAV_NUMBERS[4]}"; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
   - takeoff:
       layout: tiled
       panes:
@@ -65,11 +65,11 @@ windows:
           rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
         #}
         # { "uav${UAV_NUMBERS[4]}"
-        - 'export UAV_NAME="uav${UAV_NUMBERS[4]}";
-          waitForControl;
-          rosservice call /$UAV_NAME/mavros/cmd/arming 1;
-          sleep 2;
-          rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
+        # - 'export UAV_NAME="uav${UAV_NUMBERS[4]}";
+        #   waitForControl;
+        #   rosservice call /$UAV_NAME/mavros/cmd/arming 1;
+        #   sleep 2;
+        #   rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
         #}
   - goto:
       layout: tiled
@@ -86,20 +86,18 @@ windows:
       layout: tiled
       panes:
         - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun formation formation_main 0.0 0.0 3.0 $UAV_NAME 1
+        - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
         # 0 - flying around OFF; 1 - flying around ON;
 
   - uav2:
       layout: tiled
       panes:
         - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector main $UAV_NAME
-        - export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; export UAV_NAME4="uav${UAV_NUMBERS[4]}"; waitForOdometry; rosrun sensor_fusion_three sf_three $UAV_NAME2 $UAV_NAME3 $UAV_NAME4 0.0 -6.36 0.0
+        - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
+        - export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; export UAV_NAME4="uav${UAV_NUMBERS[4]}"; waitForOdometry; rosrun sensor_fusion_two sf_two $UAV_NAME2 $UAV_NAME3 0.0 -4.5 0.0
   - uav3:
       layout: tiled
       panes:
         - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun blob_detector main $UAV_NAME
-        - export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; export UAV_NAME4="uav${UAV_NUMBERS[4]}"; waitForOdometry; rosrun sensor_fusion_three sf_three $UAV_NAME3 $UAV_NAME2 $UAV_NAME4 -6.36 0 0.0 
-  - uav4:
-      layout: tiled
-      panes:
-        - export UAV_NAME="uav${UAV_NUMBERS[4]}"; waitForOdometry; rosrun blob_detector main $UAV_NAME
-        - export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; export UAV_NAME4="uav${UAV_NUMBERS[4]}"; waitForOdometry; rosrun sensor_fusion_three sf_three $UAV_NAME4 $UAV_NAME3 $UAV_NAME2 4.5 4.5 0.0 
+        - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
+        - export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; export UAV_NAME4="uav${UAV_NUMBERS[4]}"; waitForOdometry; rosrun sensor_fusion_two sf_two $UAV_NAME3 $UAV_NAME2 -4.5 0 0.0 
