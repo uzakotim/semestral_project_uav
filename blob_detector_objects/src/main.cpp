@@ -311,13 +311,11 @@ public:
     cv::Mat ObjectCoordinateToWorld(cv::Mat object_position,float yaw_value,cv::Mat drone_position,cv::Mat offset_vector)
     {
         cv::Mat shifted_and_scaled  = scale_matrix * (object_position - shift_to_center);   
-        cv::Mat RotationMatrix4     = (cv::Mat_<float>(3,3) << cos(-yaw_value),-sin(-yaw_value),0, sin(-yaw_value),cos(-yaw_value),0,  0,0,1) ;        
-        cv::Mat RotationMatrix5     = (cv::Mat_<float>(3,3) << 0,1,0, -1,0,0, 0,0,1) ;         
+        ROS_INFO_STREAM("[sh_&_sc] "<< shifted_and_scaled.at<float>(0)<<" | "<<shifted_and_scaled.at<float>(1)<<" | "<<shifted_and_scaled.at<float>(2));
+        cv::Mat RotationMatrix4     = (cv::Mat_<float>(3,3) << cos(yaw_value - M_PI/2),-sin(yaw_value - M_PI/2),0, sin(yaw_value-M_PI/2),cos(yaw_value-M_PI/2),0,  0,0,1) ;                 
 
         cv::Mat rotated_vector      = RotationMatrix4 * shifted_and_scaled;
-        ROS_INFO_STREAM("[sh_&_sc] "<< rotated_vector.at<float>(0)<<" | "<<rotated_vector.at<float>(1)<<" | "<<rotated_vector.at<float>(2));
-        cv::Mat result_vector       = RotationMatrix5 * rotated_vector;
-        cv::Mat point = drone_position + result_vector + offset_vector; 
+        cv::Mat point = drone_position + rotated_vector + offset_vector; 
 
         return point;
     }
@@ -358,7 +356,7 @@ public:
         //---------------------MEASUREMENTS---------------------------
         state           = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
         yaw_value       = (float)(yaw->state[0]);
-        cv::Mat offset  = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(-yaw_value)),(CAMERA_OFFSET*sin(-yaw_value)),0); // 0.2
+        cv::Mat offset  = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
         
         for (size_t i = 0;i<contours.size();i++)
         {
