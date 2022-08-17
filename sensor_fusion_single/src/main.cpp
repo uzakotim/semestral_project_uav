@@ -50,7 +50,7 @@ using namespace mrs_msgs;
 #define SEARCH_HEIGHT 3.0
 #define WIDTH_FROM_GOAL 25
 
-class Formation
+class SensFuseSingle
 {
 public:
     ros::NodeHandle nh;   
@@ -120,9 +120,9 @@ public:
     float yaw_value {0.0};
     float stored_yaw{0.0};
 
-    std::vector<float> heights {2.5,3.0,3.5,4.0,3.5,3.0};
+    std::vector<float> heights {2.5,2.7,3.0,3.2,3.0,2.7};
 
-    // ----------Formation controller parameters--------------
+    // ----------SensFuseSingle controller parameters--------------
 
      // parameters
     float n_pos {1.2};
@@ -179,7 +179,7 @@ public:
     ros::ServiceClient client;
     mrs_msgs::Vec4 srv;
 
-    Formation(char** argv, float x_parameter,float y_parameter, float z_parameter, int around_parameter)
+    SensFuseSingle(char** argv, float x_parameter,float y_parameter, float z_parameter, int around_parameter)
     {
         //------------TOPICS-DECLARATIONS----------------
 
@@ -207,7 +207,7 @@ public:
         sub_3.subscribe(nh,sub_detection_topic,1);
 
         sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2,sub_3));
-        sync->registerCallback(boost::bind(&Formation::callback,this,_1,_2,_3));
+        sync->registerCallback(boost::bind(&SensFuseSingle::callback,this,_1,_2,_3));
                 
         client = nh.serviceClient<mrs_msgs::Vec4>(pub_pose_topic);
 
@@ -439,7 +439,7 @@ public:
         pose_x = (float)(pose->pose.pose.position.x);
         pose_y = (float)(pose->pose.pose.position.y);
         state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,yaw->state[0]);
-        state_cov = Formation::convertToCov(pose);
+        state_cov = SensFuseSingle::convertToCov(pose);
         
         obj_x = (float)(obj->pose.pose.position.x);
         obj_y = (float)(obj->pose.pose.position.y);
@@ -447,7 +447,7 @@ public:
         obj_yaw = (float)(atan2(obj_y-pose_y,obj_x-pose_x));
 
         master_pose = (cv::Mat_<float>(4,1) << obj_x,obj_y,obj_z,obj_yaw);
-        obj_cov = Formation::convertToCov(obj);
+        obj_cov = SensFuseSingle::convertToCov(obj);
 
         // moving around origin -------------------------     
         if (around == 1)
@@ -472,7 +472,7 @@ public:
                 //------------RPROP----------------
                 // run optimization
                 w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3));     
-                w = Formation::calculateFormation(w, master_pose,state_cov,obj_cov);
+                w = SensFuseSingle::calculateFormation(w, master_pose,state_cov,obj_cov);
                 goal_x   = w.at<float>(0);
                 goal_y   = w.at<float>(1);
                 goal_z   = w.at<float>(2);
@@ -491,23 +491,21 @@ public:
                     {
                         searchAngle = -M_PI;
                     }
-
-                    // uncomment in case rotation around z is needed
                     
-                    // goal_z = heights[height_count];
+                    goal_z = heights[height_count];
                     
-                    // height_count++;
-                    // if (height_count>=heights.size())
-                    // {
-                        // height_count = 0;
-                    // }
+                    height_count++;
+                    if (height_count>=heights.size())
+                    {
+                        height_count = 0;
+                    }
                 }
 
                 if (master_pose.at<float>(0)!='\0')
                 {
                     // run optimization
                     w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
-                    w = Formation::calculateFormation(w, master_pose,state_cov,obj_cov);
+                    w = SensFuseSingle::calculateFormation(w, master_pose,state_cov,obj_cov);
                     goal_x   = w.at<float>(0);
                     goal_y   = w.at<float>(1);
                     goal_z   = w.at<float>(2);
@@ -568,13 +566,13 @@ int main(int argc, char** argv)
     if(!(source_cmd_around>>around))        return 1;
  
 
-    ROS_INFO_STREAM  ("Instanciating Leader Controller\n");
+    ROS_INFO_STREAM  ("Instanciating Single Controller\n");
     std::string node_name = "";
     node_name += argv[4];
-    node_name += "_formation_leader";
+    node_name += "_sensor_fusion_single";
     
     ros::init(argc, argv, node_name);
-    Formation fc(argv,offset_parameter_x,offset_parameter_y,offset_parameter_z,around);
+    SensFuseSingle sf(argv,offset_parameter_x,offset_parameter_y,offset_parameter_z,around);
     ros::spin();
 
     return 0;

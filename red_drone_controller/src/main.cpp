@@ -36,7 +36,7 @@ using namespace mrs_msgs;
 #define CALCULATIOM_STEPS_IN_MOTION 30
 #define RADIUS 2.0
 
-class Formation
+class Controller
 {
 public:
     ros::NodeHandle nh;   
@@ -76,7 +76,7 @@ public:
     ros::ServiceClient client;
     mrs_msgs::Vec4 srv;
 
-    Formation(char** argv, float x_parameter,float y_parameter, float z_parameter, int around_parameter)
+    Controller(char** argv, float x_parameter,float y_parameter, float z_parameter, int around_parameter)
     {
         //------------TOPICS-DECLARATIONS----------------
         if (argv[5] != NULL) 
@@ -108,7 +108,7 @@ public:
         sub_2.subscribe(nh,sub_yaw_topic,1);
 
         sync.reset(new Sync(MySyncPolicy(10), sub_1,sub_2));
-        sync->registerCallback(boost::bind(&Formation::callback,this,_1,_2));
+        sync->registerCallback(boost::bind(&Controller::callback,this,_1,_2));
                 
         client = nh.serviceClient<mrs_msgs::Vec4>(pub_pose_topic);
 
@@ -164,11 +164,7 @@ public:
         return result;
     }
     void callback(const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
-    {
-
-        
-        
-
+    {    
         if (around == 1)
         {
             angle = M_PI/2;
@@ -241,10 +237,10 @@ int main(int argc, char** argv)
     ROS_INFO_STREAM  ("Instanciating Red Drone Motion Controller\n");
     std::string node_name = "";
     node_name += argv[4];
-    node_name += "_formation_controller";
+    node_name += "_red_drone_controller";
     
     ros::init(argc, argv, node_name);
-    Formation fc(argv,offset_parameter_x,offset_parameter_y,offset_parameter_z,around_parameter);
+    Controller rc(argv,offset_parameter_x,offset_parameter_y,offset_parameter_z,around_parameter);
     ros::spin();
 
     return 0;
