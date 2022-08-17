@@ -365,8 +365,71 @@ public:
         cv::Point3f   measPt(measurement(0),measurement(1),measurement(2));
         return      statePt;
     }
+    cv::Point3f updateKFSingle(const OdometryConstPtr obj)
+    {
+        cv::Point3f predictPt = PredictUsingKalmanFilter();
+        center3D.x = (float)(obj->pose.pose.position.x);
+        center3D.y = (float)(obj->pose.pose.position.y);
+        center3D.z = (float)(obj->pose.pose.position.z);
 
+        main_cov = SensFuseThree::convertToCov(obj);    
+        main_cov.convertTo(main_cov, CV_32F);
 
+        KF.measurementNoiseCov = main_cov;
+        obj_cov = main_cov;
+        SetMeasurement(center3D);
+
+        cv::Point3f statePt = UpdateKalmanFilter(measurement);
+        return statePt;
+    }
+    cv::Point3f updateKFDouble(const OdometryConstPtr obj,const OdometryConstPtr obj_secondary)
+    {
+         cv::Point3f predictPt = PredictUsingKalmanFilter();
+            
+        center3D.x = (float)((obj->pose.pose.position.x + obj_secondary->pose.pose.position.x)/2.0);
+        center3D.y = (float)((obj->pose.pose.position.y + obj_secondary->pose.pose.position.y)/2.0);
+        center3D.z = (float)((obj->pose.pose.position.z + obj_secondary->pose.pose.position.z)/2.0);
+
+        main_cov = SensFuseThree::convertToCov(obj);
+        secondary_cov = convertToCov(obj_secondary);
+
+        main_cov.convertTo(main_cov, CV_32F);
+        secondary_cov.convertTo(secondary_cov, CV_32F);
+
+        KF.measurementNoiseCov = (main_cov+secondary_cov)/2.0;
+        obj_cov = (main_cov+secondary_cov)/2.0;
+        SetMeasurement(center3D);
+
+        cv::Point3f statePt = UpdateKalmanFilter(measurement);
+
+        return statePt;
+    }
+
+    cv::Point3f updateKFTriple(const OdometryConstPtr obj,const OdometryConstPtr obj_secondary,const OdometryConstPtr obj_third)
+    {
+        cv::Point3f predictPt = PredictUsingKalmanFilter();
+            
+        center3D.x = (float)((obj->pose.pose.position.x + obj_secondary->pose.pose.position.x + obj_third->pose.pose.position.x)/3.0);
+        center3D.y = (float)((obj->pose.pose.position.y + obj_secondary->pose.pose.position.y + obj_third->pose.pose.position.y)/3.0);
+        center3D.z = (float)((obj->pose.pose.position.z + obj_secondary->pose.pose.position.z + obj_third->pose.pose.position.z)/3.0);
+
+        main_cov = SensFuseThree::convertToCov(obj);
+        secondary_cov = convertToCov(obj_secondary);
+        third_cov = convertToCov(obj_third);
+        
+        main_cov.convertTo(main_cov, CV_32F);
+        secondary_cov.convertTo(secondary_cov, CV_32F);
+        third_cov.convertTo(third_cov, CV_32F);
+        obj_cov = (main_cov+third_cov)/3.0;
+
+        KF.measurementNoiseCov = (main_cov + secondary_cov+third_cov)/3.0;
+
+        SetMeasurement(center3D);
+
+        cv::Point3f statePt = UpdateKalmanFilter(measurement);
+
+        return statePt;
+    }
     //--------  COST FUNCTIONS ------------------------------
     float CostX(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, cv::Mat object_cov,float offset_x)
     {        
@@ -518,6 +581,8 @@ public:
         }
         return w;
     }
+    
+
     void setGoal(cv::Point3f statePt)
     {
         goal_x = (float)statePt.x;
@@ -572,20 +637,8 @@ public:
         if (((obj->pose.pose.position.x!='\0') && (obj_secondary->pose.pose.position.x=='\0')) && (obj_third->pose.pose.position.x=='\0'))
         {
             ROS_INFO_STREAM("Only I see...\n");
-            cv::Point3f predictPt = PredictUsingKalmanFilter();
-            center3D.x = (float)(obj->pose.pose.position.x);
-            center3D.y = (float)(obj->pose.pose.position.y);
-            center3D.z = (float)(obj->pose.pose.position.z);
-
-            main_cov = SensFuseThree::convertToCov(obj);    
-            main_cov.convertTo(main_cov, CV_32F);
-
-            KF.measurementNoiseCov = main_cov;
-            obj_cov = main_cov;
-            SetMeasurement(center3D);
-
-            cv::Point3f statePt = UpdateKalmanFilter(measurement);
-
+            cv::Point3f statePt = SensFuseThree::updateKFSingle(obj);
+            //---------------------------------------------------------------
             SensFuseThree::setGoal(statePt);
             w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
             SensFuseThree::moveDrone(w);
@@ -596,21 +649,7 @@ public:
         
         {
             ROS_INFO_STREAM("Only secondary sees...\n");
-            cv::Point3f predictPt = PredictUsingKalmanFilter();
-            center3D.x = (float)(obj_secondary->pose.pose.position.x);
-            center3D.y = (float)(obj_secondary->pose.pose.position.y);
-            center3D.z = (float)(obj_secondary->pose.pose.position.z);
-
-            secondary_cov = SensFuseThree::convertToCov(obj_secondary);
-
-            secondary_cov.convertTo(secondary_cov, CV_32F);
-
-            KF.measurementNoiseCov = secondary_cov;
-            obj_cov = secondary_cov;
-            SetMeasurement(center3D);
-
-            cv::Point3f statePt = UpdateKalmanFilter(measurement);
-
+            cv::Point3f statePt = SensFuseThree::updateKFSingle(obj_secondary);
             //---------------------------------------------------------------
             SensFuseThree::setGoal(statePt);
             w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
@@ -621,20 +660,7 @@ public:
         
         {
             ROS_INFO_STREAM("Only third sees...\n");
-            cv::Point3f predictPt = PredictUsingKalmanFilter();
-            center3D.x = (float)(obj_third->pose.pose.position.x);
-            center3D.y = (float)(obj_third->pose.pose.position.y);
-            center3D.z = (float)(obj_third->pose.pose.position.z);
-
-            third_cov = SensFuseThree::convertToCov(obj_third);
-            third_cov.convertTo(third_cov, CV_32F);
-
-            KF.measurementNoiseCov = third_cov;
-            obj_cov = third_cov;
-            SetMeasurement(center3D);
-
-            cv::Point3f statePt = UpdateKalmanFilter(measurement);
-
+            cv::Point3f statePt = SensFuseThree::updateKFSingle(obj_third);
             //---------------------------------------------------------------
             SensFuseThree::setGoal(statePt);
             w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
@@ -646,24 +672,7 @@ public:
         
         {
             ROS_INFO_STREAM("I and secondary see...\n");
-            cv::Point3f predictPt = PredictUsingKalmanFilter();
-            
-            center3D.x = (float)((obj->pose.pose.position.x + obj_secondary->pose.pose.position.x)/2.0);
-            center3D.y = (float)((obj->pose.pose.position.y + obj_secondary->pose.pose.position.y)/2.0);
-            center3D.z = (float)((obj->pose.pose.position.z + obj_secondary->pose.pose.position.z)/2.0);
-
-            main_cov = SensFuseThree::convertToCov(obj);
-            secondary_cov = convertToCov(obj_secondary);
-
-            main_cov.convertTo(main_cov, CV_32F);
-            secondary_cov.convertTo(secondary_cov, CV_32F);
-
-            KF.measurementNoiseCov = (main_cov+secondary_cov)/2.0;
-            obj_cov = (main_cov+secondary_cov)/2.0;
-            SetMeasurement(center3D);
-
-            cv::Point3f statePt = UpdateKalmanFilter(measurement);
-        
+            cv::Point3f statePt = SensFuseThree::updateKFDouble(obj, obj_secondary);
             //---------------------------------------------------------------
             SensFuseThree::setGoal(statePt);
             w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
@@ -675,24 +684,7 @@ public:
         
         {
             ROS_INFO_STREAM("I and third sees...\n");
-            cv::Point3f predictPt = PredictUsingKalmanFilter();
-            
-            center3D.x = (float)((obj->pose.pose.position.x + obj_third->pose.pose.position.x)/2.0);
-            center3D.y = (float)((obj->pose.pose.position.y + obj_third->pose.pose.position.y)/2.0);
-            center3D.z = (float)((obj->pose.pose.position.z + obj_third->pose.pose.position.z)/2.0);
-
-            main_cov = SensFuseThree::convertToCov(obj);
-            third_cov = convertToCov(obj_third);
-
-            main_cov.convertTo(main_cov, CV_32F);
-            third_cov.convertTo(third_cov, CV_32F);
-            obj_cov = (main_cov+third_cov)/2.0;
-            KF.measurementNoiseCov = (main_cov+third_cov)/2.0;
-
-            SetMeasurement(center3D);
-
-            cv::Point3f statePt = UpdateKalmanFilter(measurement);
-            
+            cv::Point3f statePt = SensFuseThree::updateKFDouble(obj, obj_third);
             //---------------------------------------------------------------
             SensFuseThree::setGoal(statePt);
             w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
@@ -703,23 +695,7 @@ public:
         
         {
             ROS_INFO_STREAM("Only secondary and third see...\n");
-            cv::Point3f predictPt = PredictUsingKalmanFilter();
-            
-            center3D.x = (float)((obj_secondary->pose.pose.position.x + obj_third->pose.pose.position.x)/2.0);
-            center3D.y = (float)((obj_secondary->pose.pose.position.y + obj_third->pose.pose.position.y)/2.0);
-            center3D.z = (float)((obj_secondary->pose.pose.position.z + obj_third->pose.pose.position.z)/2.0);
-
-            secondary_cov = SensFuseThree::convertToCov(obj_secondary);
-            third_cov = convertToCov(obj_third);
-            secondary_cov.convertTo(secondary_cov, CV_32F);
-            third_cov.convertTo(third_cov, CV_32F);
-            obj_cov = (secondary_cov+third_cov)/2.0;
-            KF.measurementNoiseCov = (secondary_cov+third_cov)/2.0;
-            
-            SetMeasurement(center3D);
-
-            cv::Point3f statePt = UpdateKalmanFilter(measurement);
-
+            cv::Point3f statePt = SensFuseThree::updateKFDouble(obj_secondary, obj_third);
             //---------------------------------------------------------------
             SensFuseThree::setGoal(statePt);
             w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
@@ -730,27 +706,7 @@ public:
         
         {
             ROS_INFO_STREAM("All see...\n");
-            cv::Point3f predictPt = PredictUsingKalmanFilter();
-            
-            center3D.x = (float)((obj->pose.pose.position.x + obj_secondary->pose.pose.position.x + obj_third->pose.pose.position.x)/3.0);
-            center3D.y = (float)((obj->pose.pose.position.y + obj_secondary->pose.pose.position.y + obj_third->pose.pose.position.y)/3.0);
-            center3D.z = (float)((obj->pose.pose.position.z + obj_secondary->pose.pose.position.z + obj_third->pose.pose.position.z)/3.0);
-
-            main_cov = SensFuseThree::convertToCov(obj);
-            secondary_cov = convertToCov(obj_secondary);
-            third_cov = convertToCov(obj_third);
-            
-            main_cov.convertTo(main_cov, CV_32F);
-            secondary_cov.convertTo(secondary_cov, CV_32F);
-            third_cov.convertTo(third_cov, CV_32F);
-            obj_cov = (main_cov+third_cov)/3.0;
-
-            KF.measurementNoiseCov = (main_cov + secondary_cov+third_cov)/3.0;
-
-            SetMeasurement(center3D);
-
-            cv::Point3f statePt = UpdateKalmanFilter(measurement);
-
+            cv::Point3f statePt = SensFuseThree::updateKFTriple(obj,obj_secondary, obj_third);
             //---------------------------------------------------------------
             SensFuseThree::setGoal(statePt);
             w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
