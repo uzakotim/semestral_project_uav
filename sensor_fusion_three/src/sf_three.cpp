@@ -133,6 +133,8 @@ public:
     float goal_y {0.0};
     float goal_z {0.0};
     float goal_yaw{0.0};
+    
+    const float heights[6] {2.5,2.7,3.0,3.2,3.0,2.7};
 
     float pose_x {0.0};
     float pose_y {0.0};
@@ -183,6 +185,7 @@ public:
 
     int k{0};  //computing steps
     int count {0};
+    int height_count {0};
     
     cv::Mat w_prev = (cv::Mat_<float>(4,1) <<  0,0,0,0);
     cv::Mat w;
@@ -403,8 +406,6 @@ public:
     //------------------------------------------------------
         //------------RPROP----------------
         // goal-driven behaviour
-        // run optimization
-        // costs
         cost_prev_x = CostX(w_prev,w_prev,master_pose,state_cov,object_cov,offset_x);
         cost_prev_y = CostY(w_prev,w_prev,master_pose,state_cov,object_cov,offset_y);
         cost_prev_z = CostZ(w_prev,w_prev,master_pose,state_cov,object_cov,offset_z);
@@ -517,35 +518,36 @@ public:
         }
         return w;
     }
-
-    void moveDrone(cv::Mat state,cv::Mat master_pose, cv::Mat state_cov,cv::Mat obj_cov)
+    void setGoal(cv::Point3f statePt)
     {
-        //MOTION PART----------------------------------------
-            w = (cv::Mat_<float>(4,1)<< state.at<float>(0),state.at<float>(1),state.at<float>(2),state.at<float>(3)); 
-            //---------------------------------------------------------------
-            
-            // run optimization
-            w = SensFuseThree::calculateFormation(w, master_pose, state_cov, obj_cov);
-            //---------------------------------------------------------------
-            // MRS - waypoint --------------------------------------
-            srv.request.reference.position.x = w.at<float>(0);
-            srv.request.reference.position.y = w.at<float>(1);
-            srv.request.reference.position.z = w.at<float>(2);
-            srv.request.reference.heading    = w.at<float>(3); 
+        goal_x = (float)statePt.x;
+        goal_y = (float)statePt.y;
+        goal_z = (float)statePt.z;
+        goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
+        searchAngle = goal_yaw;
+        master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
+    }
 
-            srv.request.header.stamp = ros::Time::now();
+    void moveDrone(cv::Mat w)
+    {
+        // MRS - waypoint --------------------------------------
+        srv.request.header.stamp = ros::Time::now();
 
-            // MRS - waypoint --------------------------------------
-            if (client.call(srv))
-            {
-                ROS_INFO("Successfull calling service\n");
-                sleep(CONTROLLER_PERIOD);
-            }
-            else 
-            {
-                ROS_ERROR("Could not publish\n");
-            }
-            //---------------------------------------------------------------
+        srv.request.reference.position.x = w.at<float>(0);
+        srv.request.reference.position.y = w.at<float>(1);
+        srv.request.reference.position.z = w.at<float>(2);
+        srv.request.reference.heading    = w.at<float>(3); 
+        
+        if (client.call(srv))
+        {
+            ROS_INFO("Successfull calling service\n");
+            sleep(CONTROLLER_PERIOD);
+        }
+        else 
+        {
+            ROS_ERROR("Could not publish\n");
+        }
+        //---------------------------------------------------------------
 
     }
 
@@ -584,16 +586,9 @@ public:
 
             cv::Point3f statePt = UpdateKalmanFilter(measurement);
 
-            //---------------------------------------------------------------
-            goal_x = (float)statePt.x;
-            goal_y = (float)statePt.y;
-            goal_z = (float)statePt.z;
-            goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
-            searchAngle = goal_yaw;
-            //---------------------------------------------------------------
-            master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-
-            SensFuseThree::moveDrone(state,master_pose,state_cov,obj_cov);
+            SensFuseThree::setGoal(statePt);
+            w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
+            SensFuseThree::moveDrone(w);
 
         }
         // if second sees...
@@ -617,16 +612,9 @@ public:
             cv::Point3f statePt = UpdateKalmanFilter(measurement);
 
             //---------------------------------------------------------------
-            goal_x = (float)statePt.x;
-            goal_y = (float)statePt.y;
-            goal_z = (float)statePt.z;
-            goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
-            searchAngle = goal_yaw;
-            master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-            //---------------------------------------------------------------
-
-            
-            SensFuseThree::moveDrone(state,master_pose,state_cov,obj_cov);
+            SensFuseThree::setGoal(statePt);
+            w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
+            SensFuseThree::moveDrone(w);
         }   
          // if third sees...
         else if (((obj->pose.pose.position.x!='\0') && (obj_secondary->pose.pose.position.x=='\0')) && (obj_third->pose.pose.position.x!='\0'))
@@ -648,16 +636,9 @@ public:
             cv::Point3f statePt = UpdateKalmanFilter(measurement);
 
             //---------------------------------------------------------------
-            goal_x = (float)statePt.x;
-            goal_y = (float)statePt.y;
-            goal_z = (float)statePt.z;
-            goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
-            searchAngle = goal_yaw;
-            master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-            //---------------------------------------------------------------
-
-            
-            SensFuseThree::moveDrone(state,master_pose,state_cov,obj_cov);
+            SensFuseThree::setGoal(statePt);
+            w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
+            SensFuseThree::moveDrone(w);
 
         }  
         // if 1 & 2 sees
@@ -684,16 +665,9 @@ public:
             cv::Point3f statePt = UpdateKalmanFilter(measurement);
         
             //---------------------------------------------------------------
-            goal_x = (float)statePt.x;
-            goal_y = (float)statePt.y;
-            goal_z = (float)statePt.z;
-            goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
-            searchAngle = goal_yaw;
-            master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-            //---------------------------------------------------------------
-
-            
-            SensFuseThree::moveDrone(state,master_pose,state_cov,obj_cov);
+            SensFuseThree::setGoal(statePt);
+            w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
+            SensFuseThree::moveDrone(w);
 
         } 
         // if 1 & 3 sees
@@ -720,16 +694,9 @@ public:
             cv::Point3f statePt = UpdateKalmanFilter(measurement);
             
             //---------------------------------------------------------------
-            goal_x = (float)statePt.x;
-            goal_y = (float)statePt.y;
-            goal_z = (float)statePt.z;
-            goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
-            searchAngle = goal_yaw;
-            master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-            //---------------------------------------------------------------
-
-            
-            SensFuseThree::moveDrone(state,master_pose,state_cov,obj_cov);
+            SensFuseThree::setGoal(statePt);
+            w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
+            SensFuseThree::moveDrone(w);
         }    
          // if 2 & 3 sees
         else if (((obj->pose.pose.position.x=='\0') && (obj_secondary->pose.pose.position.x!='\0')) && (obj_third->pose.pose.position.x!='\0'))
@@ -754,16 +721,9 @@ public:
             cv::Point3f statePt = UpdateKalmanFilter(measurement);
 
             //---------------------------------------------------------------
-            goal_x = (float)statePt.x;
-            goal_y = (float)statePt.y;
-            goal_z = (float)statePt.z;
-            goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
-            searchAngle = goal_yaw;
-            master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-            //---------------------------------------------------------------
-
-            
-            SensFuseThree::moveDrone(state,master_pose,state_cov,obj_cov);
+            SensFuseThree::setGoal(statePt);
+            w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
+            SensFuseThree::moveDrone(w);
         }  
          // if all 3 see...
         else if (((obj->pose.pose.position.x!='\0') && (obj_secondary->pose.pose.position.x!='\0')) && (obj_third->pose.pose.position.x!='\0'))
@@ -792,57 +752,29 @@ public:
             cv::Point3f statePt = UpdateKalmanFilter(measurement);
 
             //---------------------------------------------------------------
-            goal_x = (float)statePt.x;
-            goal_y = (float)statePt.y;
-            goal_z = (float)statePt.z;
-            goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
-            searchAngle = goal_yaw;
-            master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-            //---------------------------------------------------------------
-
-            
-            SensFuseThree::moveDrone(state,master_pose,state_cov,obj_cov);
-
+            SensFuseThree::setGoal(statePt);
+            w = SensFuseThree::calculateFormation(state, master_pose, state_cov, obj_cov);
+            SensFuseThree::moveDrone(w);
         } 
         else
         {
             // SEARCH--------------------------------------------------------
             ROS_INFO_STREAM("I search...\n");
             searchAngle += M_PI/SEARCH_SIZE;
-            // ROS_INFO_STREAM("[angle]: ["<<searchAngle<<"]");
-
-            // goal_z = heights[height_count];
-                
-            // height_count++;
-            // if (height_count>=heights.size())
-            // {
-                // height_count = 0;
-            // }
-
             goal_x = pose_x;
             goal_y = pose_y;
-            goal_z = 3.0;
+            goal_z = heights[height_count];
+                
+            height_count++;
+            if (height_count>=sizeof(heights)/sizeof(heights[0]))
+            {
+                height_count = 0;
+            }
+
             goal_yaw = yaw->state[0]+searchAngle;
-            
-            // MRS - waypoint --------------------------------------
-            srv.request.reference.position.x = goal_x;
-            srv.request.reference.position.y = goal_y;
-            srv.request.reference.position.z = goal_z;
-            srv.request.reference.heading    = goal_yaw; 
-
-            srv.request.header.stamp = ros::Time::now();
-
-            // MRS - waypoint --------------------------------------
-            if (client.call(srv))
-            {
-                ROS_INFO("Successfull calling service\n");
-                sleep(CONTROLLER_PERIOD);
-            }
-            else 
-            {
-                ROS_ERROR("Could not publish\n");
-            }
-            //---------------------------------------------------------------
+            // SEARCH--------------------------------------------------------
+            w = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
+            SensFuseThree::moveDrone(w);
 
         } 
         count++;
@@ -868,7 +800,7 @@ int main(int argc, char** argv)
     std::istringstream              source_cmd_x(argv[4]);
     std::istringstream              source_cmd_y(argv[5]);
     std::istringstream              source_cmd_z(argv[6]);
-    
+
     float offset_parameter_x;
     float offset_parameter_y;
     float offset_parameter_z;
