@@ -85,14 +85,14 @@ windows:
   - uav1:
       layout: tiled
       panes:
-        - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main 0.0 -4.0 3.0 $UAV_NAME 1
+        - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main 0.0 -4.0 4.0 $UAV_NAME 1
         - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
         # 0 - flying around OFF; 1 - flying around ON;
 
   - uav2:
       layout: tiled
       panes:
-        - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main -4.0 4.0 3.0 $UAV_NAME 1
+        - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main -4.0 4.0 4.0 $UAV_NAME 1
         # - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector main $UAV_NAME
         - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
         # - export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; export UAV_NAME4="uav${UAV_NUMBERS[4]}"; waitForOdometry; rosrun sensor_fusion_two sf_two $UAV_NAME2 $UAV_NAME3 0.0 -4.5 0.0
@@ -100,6 +100,6 @@ windows:
       layout: tiled
       panes:
         # - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun blob_detector main $UAV_NAME
-        - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main 4.0 4.0 3.0 $UAV_NAME 1
+        - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main 4.0 4.0 4.0 $UAV_NAME 1
         - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
         # - export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; export UAV_NAME4="uav${UAV_NUMBERS[4]}"; waitForOdometry; rosrun sensor_fusion_two sf_two $UAV_NAME3 $UAV_NAME2 -4.5 0 0.0 

@@ -9,6 +9,8 @@
 #include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/PointStamped.h>
+#include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/Pose.h>
 #include <image_transport/image_transport.h>
 #include <sensor_msgs/image_encodings.h>
 
@@ -29,7 +31,7 @@ using namespace mrs_msgs;
 
 
 #define RATE 1000
-#define CAMERA_OFFSET 0.2 //0.2
+#define CAMERA_OFFSET 0.4 //0.2
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
 #define BLOB_SIZE 15 // 10
@@ -41,7 +43,7 @@ class BlobDetector
 private:
     ros::NodeHandle nh;
     ros::Publisher image_pub;
-    ros::Publisher object_pub;
+    ros::Publisher points_pub;
 
     message_filters::Subscriber<Image> image_sub;
     message_filters::Subscriber<Image> depth_sub;
@@ -59,7 +61,7 @@ private:
     std::string pose_sub_topic        = "";
     std::string yaw_sub_topic         = "";
     
-    std::string object_pub_topic      = "";
+    std::string points_pub_topic      = "";
     std::string image_pub_topic       = "";
 
 
@@ -82,8 +84,9 @@ private:
 
 public:
     // Output Parameters
-    sensor_msgs::ImagePtr                          msg_output;
-    nav_msgs::Odometry                              msg_object;
+    sensor_msgs::ImagePtr                           msg_output;
+    // geometry_msgs::PoseArrayPtr                     msg_points;   
+                  
     int counter = 0;
 
     cv::Mat shift_to_center     = (cv::Mat_<float>(3,1) << IMAGE_WIDTH/2,IMAGE_HEIGHT/2,0); //!TODO! Check image size
@@ -120,9 +123,9 @@ public:
         image_pub_topic  += name;
         image_pub_topic  += "/blob_detection_objects";
 
-        object_pub_topic += "/";
-        object_pub_topic += name;
-        object_pub_topic += "/tracker_objects/";
+        points_pub_topic += "/";
+        points_pub_topic += name;
+        points_pub_topic += "/points/";
 
         image_sub_topic += "/";
         image_sub_topic += name;
@@ -150,7 +153,7 @@ public:
         sync->registerCallback(boost::bind(&BlobDetector::callback,this,_1,_2,_3,_4));
 
         image_pub          = nh.advertise<Image>(image_pub_topic, 1);
-        object_pub         = nh.advertise<Odometry>(object_pub_topic, 1);
+        points_pub         = nh.advertise<PoseArray>(points_pub_topic, 1);
 
         //---Kalman Filter Parameters---->>----
         KF.transitionMatrix = (cv::Mat_<float>(6,6) <<  1,0,0,1,0,0,
@@ -316,6 +319,7 @@ public:
 
         cv::Mat rotated_vector      = RotationMatrix4 * shifted_and_scaled;
         cv::Mat point = drone_position + rotated_vector + offset_vector; 
+        // cv::Mat point = drone_position + rotated_vector; 
 
         return point;
     }
@@ -334,9 +338,8 @@ public:
         cv::Mat depth_image  = ReturnCVMatImageFromDepthMsg(depth_msg);
 
 
+        std::vector<Pose> points_array {}; 
 
-
-        PredictUsingKalmanFilter();
         // -->> Operations on image ----
         cv::cvtColor(cv_image, cv_image, cv::COLOR_BGR2RGB);
         
@@ -362,7 +365,10 @@ public:
         {
                 double   newArea = cv::contourArea(contours.at(i));
                 if(newArea > BLOB_SIZE)
-                {
+                {   
+
+                    PredictUsingKalmanFilter();
+        
                     cv::Point2f center = FindCenter(contours, i);
                     float       radius = FindRadius(contours, i);
 
@@ -372,15 +378,39 @@ public:
                     unsigned short val = depth_image.at<unsigned short>(center.y, center.x);
                     center3D.z = (float)val;
                     center3D.z /= 1000.0;
-                     // Drawing Point
+                    
+                    SetMeasurement(center3D);
+                    cv::Point3d statePt = UpdateKalmanFilter(measurement);
+                    cov_matrix = KF.errorCovPost;
+
+                    
+                    
+                    // Drawing Point
                     cv::Point2d statePt2D;
                     statePt2D.x = center3D.x;
                     statePt2D.y = center3D.y;
                     cv::circle  (drawing, statePt2D, int(radius), detection_color, 2 );
                     cv::circle  (drawing, statePt2D, 5, detection_color, 10);
-                    object_coord    = (cv::Mat_<float>(3,1)<< (float)center3D.x, (float)center3D.y, (float)center3D.z);
+                
+                    object_coord    = (cv::Mat_<float>(3,1)<< (float)statePt.x, (float)statePt.y, (float)statePt.z);
                     object_world = ObjectCoordinateToWorld(object_coord,yaw_value,state,offset);
                     ROS_INFO_STREAM("[OBJECT " << i << " ]:" << object_world.at<float>(0)<<" | " << object_world.at<float>(1)<< " | "<< object_world.at<float>(2));
+                
+                    // Adding point to array
+                    Pose point;
+                    point.position.x = object_world.at<float>(0);
+                    point.position.y = object_world.at<float>(1);
+                    point.position.z = object_world.at<float>(2);
+                    point.orientation.w = cv::determinant(cov_matrix)*10e-6;
+                    points_array.push_back(point);
+                }else
+                {
+                    Pose point;
+                    point.position.x = '\0';
+                    point.position.y = '\0';
+                    point.position.z = '\0';
+                    point.orientation.w = '\0';
+                    points_array.push_back(point);
                 }
         }
 
@@ -390,6 +420,12 @@ public:
         msg_output->header.frame_id = std::to_string(counter);
         msg_output->header.stamp = ros::Time::now();
         image_pub.publish(msg_output);
+        
+        geometry_msgs::PoseArray msg_points;
+        msg_points.poses = points_array;
+        msg_points.header.frame_id = std::to_string(counter);
+        msg_points.header.stamp = ros::Time::now();
+        points_pub.publish(msg_points);
 
                 
         rate.sleep();
