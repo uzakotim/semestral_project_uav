@@ -31,7 +31,7 @@ using namespace mrs_msgs;
 
 
 #define RATE 1000
-#define CAMERA_OFFSET 0.4 //0.2
+#define CAMERA_OFFSET 0.2 //0.2
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
 #define BLOB_SIZE 15 // 10
@@ -95,17 +95,17 @@ public:
                                                             0,-0.005,0, 
                                                             0,0,-1); //x same, y flip, flip z and rescale
  
-    cv::Mat RotationMatrix      = (cv::Mat_<float>(3,3) <<  1,0,0,
-                                                            0,1,0,
-                                                            0,0,1);
+    // cv::Mat RotationMatrix      = (cv::Mat_<float>(3,3) <<  1,0,0,
+                                                            // 0,1,0,
+                                                            // 0,0,1);
  
-    cv::Mat RotationMatrix2     = (cv::Mat_<float>(3,3) <<  0,1,0, 
-                                                            1,0,0, 
-                                                            0,0,1) ; 
+    // cv::Mat RotationMatrix2     = (cv::Mat_<float>(3,3) <<  0,1,0, 
+                                                            // 1,0,0, 
+                                                            // 0,0,1) ; 
  
-    cv::Mat RotationMatrix3     = (cv::Mat_<float>(3,3) <<  1,0,0,
-                                                            0,-1,0,
-                                                            0,0,1) ;
+    // cv::Mat RotationMatrix3     = (cv::Mat_<float>(3,3) <<  1,0,0,
+                                                            // 0,-1,0,
+                                                            // 0,0,1) ;
     
     cv::KalmanFilter KF = cv::KalmanFilter(6,3,0);
     cv::Mat_<float>  measurement = cv::Mat_<float>(3,1);
@@ -314,13 +314,10 @@ public:
     cv::Mat ObjectCoordinateToWorld(cv::Mat object_position,float yaw_value,cv::Mat drone_position,cv::Mat offset_vector)
     {
         cv::Mat shifted_and_scaled  = scale_matrix * (object_position - shift_to_center);   
-        ROS_INFO_STREAM("[sh_&_sc] "<< shifted_and_scaled.at<float>(0)<<" | "<<shifted_and_scaled.at<float>(1)<<" | "<<shifted_and_scaled.at<float>(2));
+        // ROS_INFO_STREAM("[sh_&_sc] "<< shifted_and_scaled.at<float>(0)<<" | "<<shifted_and_scaled.at<float>(1)<<" | "<<shifted_and_scaled.at<float>(2));
         cv::Mat RotationMatrix4     = (cv::Mat_<float>(3,3) << cos(yaw_value - M_PI/2),-sin(yaw_value - M_PI/2),0, sin(yaw_value-M_PI/2),cos(yaw_value-M_PI/2),0,  0,0,1) ;                 
-
         cv::Mat rotated_vector      = RotationMatrix4 * shifted_and_scaled;
         cv::Mat point = drone_position + rotated_vector + offset_vector; 
-        // cv::Mat point = drone_position + rotated_vector; 
-
         return point;
     }
 
@@ -336,7 +333,6 @@ public:
 
         cv::Mat cv_image     = ReturnCVMatImageFromMsg     (msg);
         cv::Mat depth_image  = ReturnCVMatImageFromDepthMsg(depth_msg);
-
 
         std::vector<Pose> points_array {}; 
 
