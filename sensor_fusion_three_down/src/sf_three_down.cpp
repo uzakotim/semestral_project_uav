@@ -1,75 +1,68 @@
 // Copyright [2022] [Timur Uzakov]
-
-#include <message_filters/subscriber.h>
-#include <message_filters/synchronizer.h>
-#include <message_filters/sync_policies/approximate_time.h>
-
-#include <sensor_msgs/Image.h>
+#include <cmath>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/Pose.h>
+
+#include <message_filters/subscriber.h>
+#include <message_filters/synchronizer.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <mrs_msgs/ReferenceStampedSrv.h>
+#include <mrs_msgs/EstimatedState.h>
+
 #include <nav_msgs/Odometry.h>
-#include <cmath>
-#include <vector>
 #include <numeric>
 
 // include opencv2
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/tracking.hpp>
-#include <string.h>
-
-
-#include <mrs_msgs/ReferenceStampedSrv.h>
-#include <mrs_msgs/EstimatedState.h>
-
 // include ros library
 #include <ros/ros.h>
 #include "ros/service_client.h"
+
+#include <sensor_msgs/Image.h>
+#include <string.h>
+#include <vector>
+
+
+
+
+
+
+// ---------------------MACROS--------------------------------------
 
 #define CALCULATION_STEPS 10 //150
 #define CALCULATIOM_STEPS_IN_MOTION 5 //30
 
 #define CONTROLLER_PERIOD 0.1 
 // the most optimal value is 1, the less the faster motion
-
 #define CONTROL_GAIN_GOAL 200 //20
-
-#define CONTROL_GAIN_DISTANCE 0.0 
-#define CONTROL_DISTANCE 2.0 
-
-#define CONTROL_GAIN_STATE_Z 0.01 // 100
 #define CONTROL_GAIN_STATE 0.1  // 1
+#define CONTROL_GAIN_STATE_Z 0.01 // 100
 // influences how sharp are drone's motions - the lower the sharper
 
 #define DELTA_MAX 0.5 //0.5
 // determines how fast drone optimises - the smaller the faster
-#define RADIUS 0.0
 #define SEARCH_SIZE 8
 #define SEARCH_HEIGHT 3.0
 
 
-
-
-using namespace sensor_msgs;
-using namespace message_filters;
+// -----------------------------------------------------------------
 using namespace geometry_msgs;
-using namespace nav_msgs;
+using namespace message_filters;
 using namespace mrs_msgs;
-
-
-int number_of_drones;
-
+using namespace nav_msgs;
+using namespace sensor_msgs;
 
 class SensFuseThree
 {
 
 public:
 
-    ros::Publisher sf1_pub;
+// ---------------------PUB and SUB---------------------------------
     ros::Publisher goal_pub;
-    nav_msgs::Odometry goal_msg;
 
     message_filters::Subscriber<PoseArray> obj_sub;
     message_filters::Subscriber<PoseArray> obj_secondary_sub;
@@ -78,6 +71,7 @@ public:
     message_filters::Subscriber<Odometry> pose_sub;
     message_filters::Subscriber<EstimatedState> yaw_sub;
 
+// -----------------------------------------------------------------
 
     std::string sub_obj_topic           = "";
     std::string sub_obj_topic_secondary = "";
@@ -107,37 +101,17 @@ public:
     mrs_msgs::ReferenceStampedSrv srv;
 
     //---------------------------------------------------------
-     //------------OPTIMIZATION-PARAMETERS----------------`
-    float                      center_x {0.0};
-    float                      center_y {0.0};
-    float                      center_z {0.0};
-    
-    float                      x_previous;
-    float                      y_previous;
-    float                      z_previous;
-
-
+    //------------------------------PARAMETERS-----------------
     float                      offset_x;
     float                      offset_y;
     float                      offset_z;
     float                      offset_angle;
 
-    // mode
-    int                         around;
-
-    float angle = 0.0;
-    float searchAngle = -M_PI;
-
-
-    float radius = RADIUS;
-    
     float goal_x {0.0};
     float goal_y {0.0};
     float goal_z {0.0};
     float goal_yaw{0.0};
     
-    const float heights[6] {2.5,2.7,3.0,3.2,3.0,2.7};
-
     float pose_x {0.0};
     float pose_y {0.0};
     float pose_z {0.0};
@@ -145,23 +119,7 @@ public:
     float init_x {0.0};
     float init_y {0.0};
     float init_z {0.0};
-
-    float obj_x {0.0};
-    float obj_y {0.0};
-    float obj_z {0.0};
-    float obj_yaw {0.0};
-    
-    float error {0.0};
-    float yaw_value {0.0};
-    float stored_yaw{0.0};
-    
-    float angle_1{M_PI/2};
-    float angle_2{5*M_PI/4};
-    float angle_3{7*M_PI/4};
-
     // ----------Formation controller parameters--------------
-
-    // parameters
     float n_pos {1.2};
     float n_neg {0.5};
     float delta_max {DELTA_MAX};
@@ -216,7 +174,9 @@ public:
 
 
     SensFuseThree(ros::NodeHandle nh,char* name_main, char* name_secondary, char* name_third,float angle_parameter,float z_parameter)
-    {
+    {   
+
+    // ---------------------INITIALIZATION--------------------------------------
         //subscribers
 
         sub_obj_topic  += "/";
@@ -227,7 +187,6 @@ public:
         sub_obj_topic_secondary  += name_secondary;
         sub_obj_topic_secondary  += "/points/";
 
-        // if three drones
         sub_obj_topic_third  += "/";
         sub_obj_topic_third  += name_third;
         sub_obj_topic_third  += "/points/";
@@ -240,7 +199,11 @@ public:
         sub_pose_topic += name_main;
         sub_pose_topic += "/odometry/odom_main/";
 
-
+        obj_sub.subscribe(nh,sub_obj_topic,1);
+        obj_secondary_sub.subscribe (nh,sub_obj_topic_secondary,1);
+        obj_third_sub.subscribe (nh,sub_obj_topic_third,1);
+        pose_sub.subscribe(nh,sub_pose_topic,1);
+        yaw_sub.subscribe(nh,sub_yaw_topic,1);
         // publishers
         pub_goal_topic += "/";
         pub_goal_topic += name_main;
@@ -250,25 +213,15 @@ public:
         pub_pose_topic += name_main;
         pub_pose_topic += "/control_manager/reference";
 
-        obj_sub.subscribe(nh,sub_obj_topic,1);
-        obj_secondary_sub.subscribe (nh,sub_obj_topic_secondary,1);
-        obj_third_sub.subscribe (nh,sub_obj_topic_third,1);
-        pose_sub.subscribe(nh,sub_pose_topic,1);
-        yaw_sub.subscribe(nh,sub_yaw_topic,1);
-
         goal_pub = nh.advertise<Odometry>(pub_goal_topic,1);        
     
-
         sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub,obj_third_sub,pose_sub,yaw_sub));
         sync->registerCallback(boost::bind(&SensFuseThree::callback_three,this, _1,_2,_3,_4,_5));
-
         client = nh.serviceClient<mrs_msgs::ReferenceStampedSrv>(pub_pose_topic);
         
         // Taking parameters to set robot position
         offset_angle = angle_parameter;
         offset_z = z_parameter;
-      
-
 
         //---Kalman Filter Parameters---->>----
         KF.transitionMatrix = (cv::Mat_<float>(6,6) <<  1,0,0,1,0,0,
@@ -298,7 +251,7 @@ public:
                                                         0,0,0,0,0,1);
 
 
-        ROS_INFO("[Three Drones] All functions initialized");
+        ROS_INFO("[Three Drones Down] All functions initialized");
     }
 
     cv::Mat convertToCov(const OdometryConstPtr obj)
@@ -350,7 +303,6 @@ public:
         cv::Mat prediction  =  KF.predict();
         cv::Point3f predictPt(prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2));
         return  predictPt;
-        //  <<---Prediction, to update the internal statePre variable
     }
 
     void SetMeasurement(cv::Point3f center)
@@ -362,7 +314,6 @@ public:
 
     cv::Point3f UpdateKalmanFilter(cv::Mat_<float>  measurement)
     {
-        // Updating Kalman Filter
         cv::Mat       estimated = KF.correct(measurement);
         cv::Point3f   statePt(estimated.at<float>(0),estimated.at<float>(1),estimated.at<float>(2));
         cv::Point3f   measPt(measurement(0),measurement(1),measurement(2));
@@ -372,26 +323,22 @@ public:
     //--------  COST FUNCTIONS ------------------------------
     float CostX(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, float object_cov,float offset_x)
     {        
-        // resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2)+ 0.5*cv::determinant(state_cov)*10e-1; //-10 -4  
-        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_DISTANCE*(CONTROL_DISTANCE - std::pow((w.at<float>(0) - (master_pose.at<float>(0))),2)) +CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-6 + object_cov; //-10 -4  
+        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-6 + object_cov; //-10 -4  
         return resulting_cost_x;
     }
     float CostY(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, float object_cov,float offset_y)
     {
-        // resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2)+ 0.5*cv::determinant(state_cov)*10e-1;  
-        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2)  + CONTROL_GAIN_DISTANCE*(CONTROL_DISTANCE - std::pow((w.at<float>(1) - (master_pose.at<float>(1))),2))+ CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-6 + object_cov;  
+        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2)  + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-6 + object_cov;  
         return resulting_cost_y;
     }
     float CostZ(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, float object_cov,float offset_z)
     {
-        // resulting_cost_z = CONTROL_GAIN_STATE*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2)+ 0.5*cv::determinant(state_cov)*10e-1;  
         resulting_cost_z = CONTROL_GAIN_STATE_Z*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + cv::determinant(state_cov)*10e-6 + object_cov;  
         return resulting_cost_z;
     }
 
     float CostYaw(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, float object_cov)
     {
-        // resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(2)),3) +  CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2);  
         resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(3)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2) + cv::determinant(state_cov)*10e-6  + object_cov;  
         return resulting_cost_yaw;
     }
@@ -558,14 +505,13 @@ public:
     void callback_three(const PoseArrayConstPtr obj,const PoseArrayConstPtr obj_secondary, const PoseArrayConstPtr obj_third, const OdometryConstPtr pose,const EstimatedStateConstPtr& yaw)
     {
         ROS_INFO_STREAM("Synchronized");
-        //------------MEASUREMENTS------------------------
-        state = (cv::Mat_<float>(4,1) << pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z,yaw->state[0]);
-        state_cov = SensFuseThree::convertToCov(pose);
-            
+        //------------MEASUREMENTS------------------------    
         pose_x = (float)(pose->pose.pose.position.x);
         pose_y = (float)(pose->pose.pose.position.y);
         pose_z = (float)(pose->pose.pose.position.z);
-    
+
+        state = (cv::Mat_<float>(4,1) << pose_x,pose_y,pose_z,yaw->state[0]);
+        state_cov = SensFuseThree::convertToCov(pose);
 
         if (count < 1)
         {
@@ -653,7 +599,7 @@ int main(int argc, char** argv)
 
     if(argc < 4) 
     {
-        std::cerr<<"Please, enter the drone position around the goal, in the following form: UAV_NAME_OWN UAV_NAME_SEC UAV_NAME_THIRD angle z "<<'\n';
+        std::cerr<<"Please, enter the drone position's angle on circle around centroid, in the following form: UAV_NAME_OWN UAV_NAME_SEC UAV_NAME_THIRD angle z"<<'\n';
         return 1; 
     }
 
