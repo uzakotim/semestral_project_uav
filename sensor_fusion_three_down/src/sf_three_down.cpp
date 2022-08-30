@@ -368,71 +368,7 @@ public:
         cv::Point3f   measPt(measurement(0),measurement(1),measurement(2));
         return      statePt;
     }
-    cv::Point3f updateKFSingle(const OdometryConstPtr obj)
-    {
-        cv::Point3f predictPt = PredictUsingKalmanFilter();
-        center3D.x = (float)(obj->pose.pose.position.x);
-        center3D.y = (float)(obj->pose.pose.position.y);
-        center3D.z = (float)(obj->pose.pose.position.z);
 
-        main_cov = SensFuseThree::convertToCov(obj);    
-        main_cov.convertTo(main_cov, CV_32F);
-
-        KF.measurementNoiseCov = main_cov;
-        obj_cov = main_cov;
-        SetMeasurement(center3D);
-
-        cv::Point3f statePt = UpdateKalmanFilter(measurement);
-        return statePt;
-    }
-    cv::Point3f updateKFDouble(const OdometryConstPtr obj,const OdometryConstPtr obj_secondary)
-    {
-         cv::Point3f predictPt = PredictUsingKalmanFilter();
-            
-        center3D.x = (float)((obj->pose.pose.position.x + obj_secondary->pose.pose.position.x)/2.0);
-        center3D.y = (float)((obj->pose.pose.position.y + obj_secondary->pose.pose.position.y)/2.0);
-        center3D.z = (float)((obj->pose.pose.position.z + obj_secondary->pose.pose.position.z)/2.0);
-
-        main_cov = SensFuseThree::convertToCov(obj);
-        secondary_cov = convertToCov(obj_secondary);
-
-        main_cov.convertTo(main_cov, CV_32F);
-        secondary_cov.convertTo(secondary_cov, CV_32F);
-
-        KF.measurementNoiseCov = (main_cov+secondary_cov)/2.0;
-        obj_cov = (main_cov+secondary_cov)/2.0;
-        SetMeasurement(center3D);
-
-        cv::Point3f statePt = UpdateKalmanFilter(measurement);
-
-        return statePt;
-    }
-
-    cv::Point3f updateKFTriple(const OdometryConstPtr obj,const OdometryConstPtr obj_secondary,const OdometryConstPtr obj_third)
-    {
-        cv::Point3f predictPt = PredictUsingKalmanFilter();
-            
-        center3D.x = (float)((obj->pose.pose.position.x + obj_secondary->pose.pose.position.x + obj_third->pose.pose.position.x)/3.0);
-        center3D.y = (float)((obj->pose.pose.position.y + obj_secondary->pose.pose.position.y + obj_third->pose.pose.position.y)/3.0);
-        center3D.z = (float)((obj->pose.pose.position.z + obj_secondary->pose.pose.position.z + obj_third->pose.pose.position.z)/3.0);
-
-        main_cov = SensFuseThree::convertToCov(obj);
-        secondary_cov = convertToCov(obj_secondary);
-        third_cov = convertToCov(obj_third);
-        
-        main_cov.convertTo(main_cov, CV_32F);
-        secondary_cov.convertTo(secondary_cov, CV_32F);
-        third_cov.convertTo(third_cov, CV_32F);
-        obj_cov = (main_cov+third_cov)/3.0;
-
-        KF.measurementNoiseCov = (main_cov + secondary_cov+third_cov)/3.0;
-
-        SetMeasurement(center3D);
-
-        cv::Point3f statePt = UpdateKalmanFilter(measurement);
-
-        return statePt;
-    }
     //--------  COST FUNCTIONS ------------------------------
     float CostX(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, float object_cov,float offset_x)
     {        
@@ -586,16 +522,6 @@ public:
     }
     
 
-    void setGoal(cv::Point3f statePt)
-    {
-        goal_x = (float)statePt.x;
-        goal_y = (float)statePt.y;
-        goal_z = (float)statePt.z;
-        goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
-        searchAngle = goal_yaw;
-        master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
-    }
-
     void moveDrone(cv::Mat w)
     {
         // MRS - waypoint --------------------------------------
@@ -677,9 +603,17 @@ public:
         z_avg = SensFuseThree::getAverage(all_z);
         cov_avg = SensFuseThree::getAverage(all_cov);
 
+        cv::Point3f predictPt = PredictUsingKalmanFilter();
+        center3D.x = x_avg;
+        center3D.y = y_avg;
+        center3D.z = z_avg;
+        SetMeasurement(center3D);
+
+        cv::Point3f statePt = UpdateKalmanFilter(measurement);
+
         for (size_t i = 0;i<all_x.size();i++)
         {
-            all_radius.push_back(std::sqrt(std::pow((all_x[i]-x_avg),2)+std::pow((all_y[i]-y_avg),2)+std::pow((all_z[i]-z_avg),2)));
+            all_radius.push_back(std::sqrt(std::pow((all_x[i]-statePt.x),2)+std::pow((all_y[i]-statePt.y),2)+std::pow((all_z[i]-statePt.z),2)));
         }
 
         max_radius = 0;
@@ -690,10 +624,11 @@ public:
                 max_radius = x;
             }
         }
+        
 
-        goal_x = x_avg;
-        goal_y = y_avg;
-        goal_z = z_avg;
+        goal_x = statePt.x;
+        goal_y = statePt.y;
+        goal_z = statePt.z;
         goal_yaw = (float)(atan2(goal_y-pose_y,goal_x-pose_x));
         
         master_pose = (cv::Mat_<float>(4,1) << goal_x,goal_y,goal_z,goal_yaw);
