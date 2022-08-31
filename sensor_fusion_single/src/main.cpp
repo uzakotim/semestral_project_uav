@@ -46,7 +46,7 @@ using namespace mrs_msgs;
 #define DELTA_MAX 0.5 //0.5
 // determines how fast drone optimises - the smaller the faster
 #define RADIUS 0.0
-#define SEARCH_SIZE 4
+#define SEARCH_SIZE 8
 #define SEARCH_HEIGHT 3.0
 #define WIDTH_FROM_GOAL 25
 
@@ -446,6 +446,7 @@ public:
         obj_z = (float)(obj->pose.pose.position.z);
         obj_yaw = (float)(atan2(obj_y-pose_y,obj_x-pose_x));
 
+        ROS_INFO_STREAM("object x: "<<obj_x<<" object y: "<<obj_y<<" object z: "<<obj_z<<'\n');
         master_pose = (cv::Mat_<float>(4,1) << obj_x,obj_y,obj_z,obj_yaw);
         obj_cov = SensFuseSingle::convertToCov(obj);
 
@@ -461,7 +462,7 @@ public:
             goal_x = init_x + radius * cos(angle);
             goal_y = init_y + radius * sin(angle);
             goal_z = SEARCH_HEIGHT;
-            ROS_INFO_STREAM("goal x: "<<goal_x<<" goal y: "<<goal_y<<'\n');
+            // ROS_INFO_STREAM("goal x: "<<goal_x<<" goal y: "<<goal_y<<'\n');
         }
         else
         {
@@ -482,23 +483,20 @@ public:
             {
                 goal_yaw = searchAngle;
                 // If I didn't find it, I search
-                if (count%2 == 0)
-                {
-                    searchAngle += M_PI/SEARCH_SIZE;
-                    ROS_INFO_STREAM("[search]: ["<<searchAngle<<"]");
+                searchAngle += M_PI/SEARCH_SIZE;
+                ROS_INFO_STREAM("[search]: ["<<searchAngle<<"]");
 
-                    if (searchAngle >= M_PI)
-                    {
-                        searchAngle = -M_PI;
-                    }
-                    
-                    goal_z = heights[height_count];
-                    
-                    height_count++;
-                    if (height_count>=heights.size())
-                    {
-                        height_count = 0;
-                    }
+                if (searchAngle >= M_PI)
+                {
+                    searchAngle = -M_PI;
+                }
+                
+                goal_z = heights[height_count];
+                
+                height_count++;
+                if (height_count>=heights.size())
+                {
+                    height_count = 0;
                 }
 
                 if (master_pose.at<float>(0)!='\0')

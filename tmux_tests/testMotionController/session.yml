@@ -11,7 +11,7 @@ windows:
   - gazebo:
       layout: tiled
       panes:
-        - waitForRos; roslaunch mrs_simulation simulation.launch world_name:=grass_plane_with_box_straight gui:=true
+        - waitForRos; roslaunch mrs_simulation simulation.launch world_name:=grass_plane_with_box gui:=true
   - status:
       layout: tiled
       panes:
