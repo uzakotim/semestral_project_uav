@@ -33,12 +33,13 @@
 
 // ---------------------MACROS--------------------------------------
 
-#define CALCULATION_STEPS 10 //150
-#define CALCULATIOM_STEPS_IN_MOTION 5 //30
+#define CALCULATION_STEPS 10 //10
+#define CALCULATIOM_STEPS_IN_MOTION 5 //5
 
-#define CONTROLLER_PERIOD 0.1 
+#define CONTROLLER_PERIOD 0.001 
+
 // the most optimal value is 1, the less the faster motion
-#define CONTROL_GAIN_GOAL 200 //20
+#define CONTROL_GAIN_GOAL 200 //200
 #define CONTROL_GAIN_STATE 0.1  // 1
 #define CONTROL_GAIN_STATE_Z 0.01 // 100
 // influences how sharp are drone's motions - the lower the sharper
@@ -120,10 +121,10 @@ public:
     float init_y {0.0};
     float init_z {0.0};
     // ----------Formation controller parameters--------------
-    float n_pos {1.2};
-    float n_neg {0.5};
-    float delta_max {DELTA_MAX};
-    float delta_min {0.001}; // 0.000001
+    const float n_pos {1.2};
+    const float n_neg {0.5};
+    const float delta_max {DELTA_MAX};
+    const float delta_min {0.001}; // 0.000001
    
     float cost_prev_x{0},cost_cur_x{0};
     float cost_prev_y{0},cost_cur_y{0};
@@ -148,9 +149,9 @@ public:
     std::vector<float> delta {0.5,0.5,0.5,0.5};
     std::vector<float> delta_prev {0.5,0.5,0.5,0.5};
 
-    int k{0};  //computing steps
-    int count {0};
-    int height_count {0};
+    size_t k{0};  //computing steps
+    u_int64_t count {0};
+    size_t height_count {0};
     
     cv::Mat w_prev = (cv::Mat_<float>(4,1) <<  0,0,0,0);
     cv::Mat w;
@@ -167,6 +168,7 @@ public:
     float resulting_cost_z {0};
     float resulting_cost_yaw {0};
 
+    cv::Point3f prevState;
     //-----------------------------------------------------------------------------------------------------------------
     typedef sync_policies::ApproximateTime<PoseArray,PoseArray,PoseArray,Odometry,EstimatedState> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
@@ -501,7 +503,7 @@ public:
             return std::accumulate(v.begin(), v.end(), 0.0) / v.size();
         }
     }
-
+    
     void callback_three(const PoseArrayConstPtr obj,const PoseArrayConstPtr obj_secondary, const PoseArrayConstPtr obj_third, const OdometryConstPtr pose,const EstimatedStateConstPtr& yaw)
     {
         ROS_INFO_STREAM("Synchronized");
@@ -517,7 +519,12 @@ public:
         {
             init_x = pose_x;
             init_y = pose_y;
+
+            prevState.x = init_x;
+            prevState.y = init_y;
+            prevState.z = 1.0;
         }
+
 
         std::vector<float> all_x,all_y,all_z,all_cov,all_radius;
         for (Pose point : obj->poses)
@@ -526,6 +533,10 @@ public:
             all_y.push_back(point.position.y);
             all_z.push_back(point.position.z);
             all_cov.push_back(point.orientation.w);
+         
+            float value = std::sqrt(std::pow(point.position.x-prevState.x,2) + std::pow(point.position.y-prevState.y,2));
+            auto it = std::lower_bound(all_radius.cbegin(),all_radius.cend(),value);
+            all_radius.insert(it,value);
         }
         for (Pose point : obj_secondary->poses)
         {
@@ -533,6 +544,10 @@ public:
             all_y.push_back(point.position.y);
             all_z.push_back(point.position.z);
             all_cov.push_back(point.orientation.w);
+            
+            float value = std::sqrt(std::pow(point.position.x-prevState.x,2) + std::pow(point.position.y-prevState.y,2));
+            auto it = std::lower_bound(all_radius.cbegin(),all_radius.cend(),value);
+            all_radius.insert(it,value);
         }
         for (Pose point : obj_third->poses)
         {
@@ -540,6 +555,10 @@ public:
             all_y.push_back(point.position.y);
             all_z.push_back(point.position.z);
             all_cov.push_back(point.orientation.w);
+
+            float value = std::sqrt(std::pow(point.position.x-prevState.x,2) + std::pow(point.position.y-prevState.y,2));
+            auto it = std::lower_bound(all_radius.cbegin(),all_radius.cend(),value);
+            all_radius.insert(it,value);
         }
 
         float x_avg,y_avg,z_avg,cov_avg,max_radius;
@@ -557,20 +576,8 @@ public:
 
         cv::Point3f statePt = UpdateKalmanFilter(measurement);
 
-        for (size_t i = 0;i<all_x.size();i++)
-        {
-            all_radius.push_back(std::sqrt(std::pow((all_x[i]-statePt.x),2)+std::pow((all_y[i]-statePt.y),2)+std::pow((all_z[i]-statePt.z),2)));
-        }
-
-        max_radius = 0;
-        for (float x: all_radius)
-        {
-            if (x >= max_radius)
-            {
-                max_radius = x;
-            }
-        }
-        
+        size_t n = all_radius.size();
+        max_radius = all_radius[n-1];
 
         goal_x = statePt.x;
         goal_y = statePt.y;
@@ -584,6 +591,10 @@ public:
         w = SensFuseThree::calculateFormation(state, master_pose, state_cov, cov_avg);
         SensFuseThree::moveDrone(w);
         
+        prevState.x = statePt.x;
+        prevState.y = statePt.y;
+        prevState.z = statePt.z;
+
         count++;
     }
 };

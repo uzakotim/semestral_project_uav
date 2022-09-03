@@ -36,6 +36,7 @@ using namespace sensor_msgs;
 // 25 - optimal
 // 10 - detects UAV motors
 #define CAMERA_OFFSET 0.2
+#define CONTROLLER_PERIOD 0.01
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
 #define RATE 1000
@@ -83,10 +84,10 @@ public:
     sensor_msgs::ImagePtr                           msg_output;
 
     // transforamtion matrices
-    cv::Mat shift_to_center     = (cv::Mat_<float>(3,1) << IMAGE_WIDTH/2,IMAGE_HEIGHT/2,0); 
+    const cv::Mat shift_to_center     = (cv::Mat_<float>(3,1) << IMAGE_WIDTH/2,IMAGE_HEIGHT/2,0); 
                                 //! Always check image size depending on camera
  
-    cv::Mat scale_matrix        = (cv::Mat_<float>(3,3) <<  0.005,0,0, 
+    const cv::Mat scale_matrix        = (cv::Mat_<float>(3,3) <<  0.005,0,0, 
                                                             0,-0.005,0, 
                                                             0,0,-1);
                                 //x same, y flip, flip z and rescale
@@ -102,7 +103,7 @@ public:
 
     // auxilary parameters
     float yaw_value;
-    int counter{0};
+    u_int64_t counter{0};
 
     BlobDetector(char* name)
     {
@@ -322,7 +323,6 @@ public:
 
     void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg, const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
-        ros::Rate rate(RATE);
         ROS_INFO("Synchronized\n");
 
         std_msgs::Header    msg_header  = depth_msg->header;
@@ -331,7 +331,13 @@ public:
         cv::Mat cv_image     = ReturnCVMatImageFromMsg     (msg);
         cv::Mat depth_image  = ReturnCVMatImageFromDepthMsg(depth_msg);
 
-        std::vector<Pose> points_array {}; 
+        std::vector<Pose> points_array {};
+        Pose point;
+        point.position.x = '\0';
+        point.position.y = '\0';
+        point.position.z = '\0';
+        point.orientation.w = '\0';
+        points_array.push_back(point); 
         // -->> Operations on image ----
         cv::cvtColor(cv_image, cv_image, cv::COLOR_BGR2RGB);
         
@@ -362,7 +368,7 @@ public:
                     PredictUsingKalmanFilter();
                     // Finding blob's center       
                     cv::Point2f center = FindCenter(contours, i);
-                    float       radius = FindRadius(contours, i);
+
 
                     cv::Point3d center3D;
                     center3D.x = center.x;
@@ -376,15 +382,18 @@ public:
                     cov_matrix = KF.errorCovPost;
 
                     // Drawing Point
+                    float       radius = FindRadius(contours, i);
                     cv::Point2d statePt2D;
                     statePt2D.x = center3D.x;
                     statePt2D.y = center3D.y;
                     cv::circle  (drawing, statePt2D, int(radius), detection_color, 2 );
                     cv::circle  (drawing, statePt2D, 5, detection_color, 10);
+
+
                     // Conversion to global coordinates
                     object_coord    = (cv::Mat_<float>(3,1)<< (float)statePt.x, (float)statePt.y, (float)statePt.z);
                     object_world = ObjectCoordinateToWorld(object_coord,yaw_value,state,offset);
-                    ROS_INFO_STREAM("[OBJECT " << i << " ]:" << object_world.at<float>(0)<<" | " << object_world.at<float>(1)<< " | "<< object_world.at<float>(2));
+                    // ROS_INFO_STREAM("[OBJECT " << i << " ]:" << object_world.at<float>(0)<<" | " << object_world.at<float>(1)<< " | "<< object_world.at<float>(2));
                 
                     // Adding point to array
                     Pose point;
@@ -393,15 +402,15 @@ public:
                     point.position.z = object_world.at<float>(2);
                     point.orientation.w = cv::determinant(cov_matrix)*10e-6;
                     points_array.push_back(point);
-                }else
-                {
-                    Pose point;
-                    point.position.x = '\0';
-                    point.position.y = '\0';
-                    point.position.z = '\0';
-                    point.orientation.w = '\0';
-                    points_array.push_back(point);
                 }
+                // {
+                //     Pose point;
+                //     point.position.x = '\0';
+                //     point.position.y = '\0';
+                //     point.position.z = '\0';
+                //     point.orientation.w = '\0';
+                //     points_array.push_back(point);
+                // }
         }
 
         // ---------------------MSG-----------------------------------------------
@@ -417,7 +426,7 @@ public:
         msg_points.header.stamp = ros::Time::now();
         points_pub.publish(msg_points);
 
-        rate.sleep();
+        sleep(CONTROLLER_PERIOD);
         counter++; 
     }
 };
