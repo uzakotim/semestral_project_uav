@@ -403,14 +403,6 @@ public:
                     point.orientation.w = cv::determinant(cov_matrix)*10e-6;
                     points_array.push_back(point);
                 }
-                // {
-                //     Pose point;
-                //     point.position.x = '\0';
-                //     point.position.y = '\0';
-                //     point.position.z = '\0';
-                //     point.orientation.w = '\0';
-                //     points_array.push_back(point);
-                // }
         }
 
         // ---------------------MSG-----------------------------------------------
