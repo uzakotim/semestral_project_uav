@@ -36,7 +36,7 @@ using namespace sensor_msgs;
 // 25 - optimal
 // 10 - detects UAV motors
 #define CAMERA_OFFSET 0.2
-#define CONTROLLER_PERIOD 0.01
+#define CONTROLLER_PERIOD 0.001
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
 #define RATE 1000
@@ -310,12 +310,11 @@ public:
         return maxAreaContourId;
     }
     
-    cv::Mat ObjectCoordinateToWorld(cv::Mat object_position,float yaw_value,cv::Mat drone_position,cv::Mat offset_vector)
+    cv::Mat ObjectCoordinateToWorld(const cv::Mat &object_position,const float &yaw_value,const cv::Mat &drone_position,const cv::Mat &offset_vector)
     {
         // Function for transforming object position to global frame
-        cv::Mat shifted_and_scaled  = scale_matrix * (object_position - shift_to_center);   
         cv::Mat RotationMatrix4     = (cv::Mat_<float>(3,3) << cos(yaw_value - M_PI/2),-sin(yaw_value - M_PI/2),0, sin(yaw_value-M_PI/2),cos(yaw_value-M_PI/2),0,  0,0,1) ;                 
-        cv::Mat rotated_vector      = RotationMatrix4 * shifted_and_scaled;
+        cv::Mat rotated_vector      = RotationMatrix4 * scale_matrix * (object_position - shift_to_center);
         cv::Mat point = drone_position + rotated_vector + offset_vector; 
         return point;
     }

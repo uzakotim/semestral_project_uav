@@ -33,13 +33,13 @@
 
 // ---------------------MACROS--------------------------------------
 
-#define CALCULATION_STEPS 10 //10
-#define CALCULATIOM_STEPS_IN_MOTION 5 //5
+#define CALCULATION_STEPS 20 //10
+#define CALCULATIOM_STEPS_IN_MOTION 10 //5
 
-#define CONTROLLER_PERIOD 0.001 
+#define CONTROLLER_PERIOD 0.001
 
 // the most optimal value is 1, the less the faster motion
-#define CONTROL_GAIN_GOAL 200 //200
+#define CONTROL_GAIN_GOAL 500 //200
 #define CONTROL_GAIN_STATE 0.1  // 1
 #define CONTROL_GAIN_STATE_Z 0.01 // 100
 // influences how sharp are drone's motions - the lower the sharper
@@ -175,7 +175,7 @@ public:
     boost::shared_ptr<Sync> sync;
 
 
-    SensFuseThree(ros::NodeHandle nh,char* name_main, char* name_secondary, char* name_third,float angle_parameter,float z_parameter)
+    SensFuseThree(ros::NodeHandle nh,const char* &name_main, const char* &name_secondary,const char* &name_third,const float &angle_parameter,const float &z_parameter)
     {   
 
     // ---------------------INITIALIZATION--------------------------------------
@@ -233,16 +233,11 @@ public:
                                                         0,0,0,0,1,0,
                                                         0,0,0,0,0,1);
         measurement.setTo(cv::Scalar(0));
-        KF.statePre.at<float>(0) = 0;
-        KF.statePre.at<float>(1) = 0;
-        KF.statePre.at<float>(2) = 0;
-        KF.statePre.at<float>(3) = 0;
-        KF.statePre.at<float>(4) = 0;
-        KF.statePre.at<float>(5) = 0;
+        
 
         setIdentity(KF.measurementMatrix);
-        setIdentity(KF.processNoiseCov,     cv::Scalar::all(1e-4)); //Q
-        setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10));   //R
+        setIdentity(KF.processNoiseCov,     cv::Scalar::all(10)); //Q
+        setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10)); //R
         setIdentity(KF.errorCovPost,        cv::Scalar::all(.1));
         // ---<< Kalman Filter Parameters ----
         obj_cov             = (cv::Mat_<float>(6,6) <<  1,0,0,0,0,0,
@@ -256,7 +251,7 @@ public:
         ROS_INFO("[Three Drones Down] All functions initialized");
     }
 
-    cv::Mat convertToCov(const OdometryConstPtr obj)
+    cv::Mat convertToCov(OdometryConstPtr obj)
     {
         cv::Mat result = (cv::Mat_<double>(6,6)<<
                                                         obj->pose.covariance[0],
@@ -323,23 +318,23 @@ public:
     }
 
     //--------  COST FUNCTIONS ------------------------------
-    float CostX(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, float object_cov,float offset_x)
+    float CostX(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat state_cov,float object_cov,float offset_x)
     {        
         resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + cv::determinant(state_cov)*10e-6 + object_cov; //-10 -4  
         return resulting_cost_x;
     }
-    float CostY(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, float object_cov,float offset_y)
+    float CostY(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat state_cov,float object_cov,float offset_y)
     {
         resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2)  + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + cv::determinant(state_cov)*10e-6 + object_cov;  
         return resulting_cost_y;
     }
-    float CostZ(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, float object_cov,float offset_z)
+    float CostZ(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat state_cov,float object_cov,float offset_z)
     {
         resulting_cost_z = CONTROL_GAIN_STATE_Z*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + cv::determinant(state_cov)*10e-6 + object_cov;  
         return resulting_cost_z;
     }
 
-    float CostYaw(cv::Mat w,cv::Mat w_prev, cv::Mat master_pose,cv::Mat state_cov, float object_cov)
+    float CostYaw(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat state_cov,float object_cov)
     {
         resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(3)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2) + cv::determinant(state_cov)*10e-6  + object_cov;  
         return resulting_cost_yaw;
@@ -352,7 +347,7 @@ public:
     }
 
     
-    cv::Mat calculateFormation(cv::Mat w, cv::Mat master_pose,cv::Mat state_cov,float object_cov)
+    cv::Mat calculateFormation( cv::Mat w,cv::Mat master_pose,cv::Mat state_cov,float object_cov)
     {
     //------------------------------------------------------
         //------------RPROP----------------
@@ -504,7 +499,7 @@ public:
         }
     }
     
-    void callback_three(const PoseArrayConstPtr obj,const PoseArrayConstPtr obj_secondary, const PoseArrayConstPtr obj_third, const OdometryConstPtr pose,const EstimatedStateConstPtr& yaw)
+    void callback_three(PoseArrayConstPtr obj,PoseArrayConstPtr obj_secondary,PoseArrayConstPtr obj_third, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
     {
         ROS_INFO_STREAM("Synchronized");
         //------------MEASUREMENTS------------------------    
@@ -522,7 +517,14 @@ public:
 
             prevState.x = init_x;
             prevState.y = init_y;
-            prevState.z = 1.0;
+            prevState.z = 0.5;
+
+            KF.statePre.at<float>(0) = init_x;
+            KF.statePre.at<float>(1) = init_y;
+            KF.statePre.at<float>(2) = 0.5;
+            KF.statePre.at<float>(3) = 0;
+            KF.statePre.at<float>(4) = 0;
+            KF.statePre.at<float>(5) = 0;
         }
 
 
@@ -626,7 +628,10 @@ int main(int argc, char** argv)
 
     ros::init(argc, argv, node_name);
     ros::NodeHandle nh;
-    SensFuseThree sf(nh,argv[1],argv[2],argv[3],offset_parameter_angle,offset_parameter_z);
+    const char * first  = argv[1];
+    const char * second = argv[2];
+    const char * third  = argv[3];
+    SensFuseThree sf(nh,first,second,third,offset_parameter_angle,offset_parameter_z);
 
     ros::spin();
 
