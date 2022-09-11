@@ -25,7 +25,7 @@
 #include <sensor_msgs/Image.h>
 #include <string.h>
 #include <vector>
-
+#include <queue>
 
 
 
@@ -251,7 +251,7 @@ public:
         ROS_INFO("[Three Drones Down] All functions initialized");
     }
 
-    cv::Mat convertToCov(OdometryConstPtr obj)
+    cv::Mat convertToCov(const OdometryConstPtr obj)
     {
         cv::Mat result = (cv::Mat_<double>(6,6)<<
                                                         obj->pose.covariance[0],
@@ -302,7 +302,7 @@ public:
         return  predictPt;
     }
 
-    void SetMeasurement(cv::Point3f center)
+    void SetMeasurement(const cv::Point3f center)
     {
         measurement.at<float>(0) = center.x;
         measurement.at<float>(1) = center.y;
@@ -528,7 +528,8 @@ public:
         }
 
 
-        std::vector<float> all_x,all_y,all_z,all_cov,all_radius;
+        std::vector<float> all_x,all_y,all_z,all_cov;
+        std::priority_queue<float> all_radius;
         for (Pose point : obj->poses)
         {
             all_x.push_back(point.position.x);
@@ -537,8 +538,7 @@ public:
             all_cov.push_back(point.orientation.w);
          
             float value = std::sqrt(std::pow(point.position.x-prevState.x,2) + std::pow(point.position.y-prevState.y,2));
-            auto it = std::lower_bound(all_radius.cbegin(),all_radius.cend(),value);
-            all_radius.insert(it,value);
+            all_radius.push(value);
         }
         for (Pose point : obj_secondary->poses)
         {
@@ -548,8 +548,7 @@ public:
             all_cov.push_back(point.orientation.w);
             
             float value = std::sqrt(std::pow(point.position.x-prevState.x,2) + std::pow(point.position.y-prevState.y,2));
-            auto it = std::lower_bound(all_radius.cbegin(),all_radius.cend(),value);
-            all_radius.insert(it,value);
+            all_radius.push(value);
         }
         for (Pose point : obj_third->poses)
         {
@@ -559,8 +558,9 @@ public:
             all_cov.push_back(point.orientation.w);
 
             float value = std::sqrt(std::pow(point.position.x-prevState.x,2) + std::pow(point.position.y-prevState.y,2));
-            auto it = std::lower_bound(all_radius.cbegin(),all_radius.cend(),value);
-            all_radius.insert(it,value);
+            all_radius.push(value);
+            // all_radius.insert(it,value);
+            // auto it = std::lower_bound(all_radius.cbegin(),all_radius.cend(),value);
         }
 
         float x_avg,y_avg,z_avg,cov_avg,max_radius;
@@ -578,9 +578,10 @@ public:
 
         cv::Point3f statePt = UpdateKalmanFilter(measurement);
 
-        size_t n = all_radius.size();
-        max_radius = all_radius[n-1];
-
+        // size_t n = all_radius.size();
+        max_radius = all_radius.top();
+        ROS_INFO_STREAM("Centroid: x "<<x_avg<<" y "<<y_avg<<" z "<<z_avg<<'\n');
+        ROS_INFO_STREAM("Radius: r "<<max_radius<<'\n');
         goal_x = statePt.x;
         goal_y = statePt.y;
         goal_z = statePt.z;
