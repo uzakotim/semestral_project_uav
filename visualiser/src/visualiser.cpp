@@ -35,8 +35,8 @@
 
 // ---------------------MACROS--------------------------------------
 #define SIZE_OF_OBJECT 0.5
-#define ELLIPSE_SCALE  1
-#define COV_RESOLUTION 2
+#define ELLIPSE_SCALE  0.125
+#define COV_RESOLUTION 3
 // -----------------------------------------------------------------
 using namespace geometry_msgs;
 using namespace message_filters;
@@ -269,9 +269,9 @@ public:
                         float sigma_y = point.orientation.y;
                         float sigma_z = point.orientation.z;
 
-                        float sigma_mean = (sigma_x + sigma_y + sigma_z)/3.0;
+                        // float sigma_mean = (sigma_x + sigma_y + sigma_z)/3.0;
                         //filter
-                        if(std::abs((std::pow((i/sigma_x),2) + std::pow((j/sigma_y),2)+std::pow((k/sigma_z),2))-(ELLIPSE_SCALE*std::pow((1/sigma_mean),2)))<=0.001)
+                        if(std::abs((std::pow((i/(ELLIPSE_SCALE*sigma_x)),2) + std::pow((j/(ELLIPSE_SCALE*sigma_y)),2)+std::pow((k/(ELLIPSE_SCALE*sigma_z)),2))-1.0)<=0.1)
                         {
                            p.x = point.position.x+i;
                            p.y = point.position.y+j;
@@ -317,7 +317,7 @@ public:
         marker.color.a = 1.0;
         // ----------------------------------------------
 
-        // ---- Marker message with centroids ----
+        // ---- Marker message with covariance ----
         visualization_msgs::Marker cov_marker;
         cov_marker.header.frame_id = "base_link";
         cov_marker.header.stamp = ros::Time();
@@ -338,11 +338,58 @@ public:
         cov_marker.color.r = 0.0;
         cov_marker.color.g = 1.0;
         cov_marker.color.b = 0.0;
-        cov_marker.color.a = 1.0;
+        cov_marker.color.a = 0.5;
         // ----------------------------------------------
 
 
 
+        // ---- Marker message with global center ----
+        visualization_msgs::Marker marker_center;
+        marker_center.header.frame_id = "base_link";
+        marker_center.header.stamp = ros::Time();
+        marker_center.ns = "marker_center_cube_list";
+        marker_center.id = 0;
+        marker_center.type = visualization_msgs::Marker::CUBE_LIST;
+        marker_center.action = visualization_msgs::Marker::ADD;
+        // marker.pose.position.x = 0;
+        // marker.pose.position.y = 0;
+        // marker.pose.position.z = 0;
+        marker_center.pose.orientation.x = 0.0;
+        marker_center.pose.orientation.y = 0.0;
+        marker_center.pose.orientation.z = 0.0;
+        marker_center.pose.orientation.w = 1.0;
+        marker_center.scale.x = SIZE_OF_OBJECT;
+        marker_center.scale.y = SIZE_OF_OBJECT;
+        marker_center.scale.z = SIZE_OF_OBJECT;
+        marker_center.color.r = 1.0;
+        marker_center.color.g = 1.0;
+        marker_center.color.b = 0.0;
+        marker_center.color.a = 1.0;
+        // ----------------------------------------------
+
+        // ---- Marker message with center covariance ----
+        visualization_msgs::Marker cov_marker_center;
+        cov_marker_center.header.frame_id = "base_link";
+        cov_marker_center.header.stamp = ros::Time();
+        cov_marker_center.ns = "marker_center_covariance_list";
+        cov_marker_center.id = 0;
+        cov_marker_center.type = visualization_msgs::Marker::SPHERE_LIST;
+        cov_marker_center.action = visualization_msgs::Marker::ADD;
+        // cov_marker_center.pose.position.x = 0;
+        // cov_marker_center.pose.position.y = 0;
+        // cov_marker_center.pose.position.z = 0;
+        cov_marker_center.pose.orientation.x = 0.0;
+        cov_marker_center.pose.orientation.y = 0.0;
+        cov_marker_center.pose.orientation.z = 0.0;
+        cov_marker_center.pose.orientation.w = 1.0;
+        cov_marker_center.scale.x = SIZE_OF_OBJECT/10;
+        cov_marker_center.scale.y = SIZE_OF_OBJECT/10;
+        cov_marker_center.scale.z = SIZE_OF_OBJECT/10;
+        cov_marker_center.color.r = 1.0;
+        cov_marker_center.color.g = 0.647;
+        cov_marker_center.color.b = 0.0;
+        cov_marker_center.color.a = 0.5;
+        // ----------------------------------------------
 
         std::vector<float> all_x,all_y,all_z,all_cov;
         std::priority_queue<float> all_radius;
@@ -405,6 +452,15 @@ public:
         z_avg = Visualiser::getAverage(all_z);
         cov_avg = Visualiser::getAverage(all_cov);
 
+        geometry_msgs::Point p;
+        p.x = x_avg;
+        p.y = y_avg;
+        p.z = z_avg;
+        marker_center.points.push_back(p);
+
+      
+        
+        
         cv::Point3f predictPt = PredictUsingKalmanFilter();
         center3D.x = x_avg;
         center3D.y = y_avg;
@@ -414,9 +470,23 @@ public:
         cv::Point3f statePt = UpdateKalmanFilter(measurement);
         ROS_INFO_STREAM("Centroid: x "<<x_avg<<" y "<<y_avg<<" z "<<z_avg<<'\n');
         
+        cov_matrix = KF.errorCovPost;
+
+        Pose point;
+        point.position.x = x_avg; 
+        point.position.y = y_avg; 
+        point.position.z = z_avg;
+
+        point.orientation.x = cov_matrix.at<float>(0,0); 
+        point.orientation.y = cov_matrix.at<float>(1,1); 
+        point.orientation.z = cov_matrix.at<float>(2,2); 
+
+        cov_marker_center = Visualiser::drawCovariance(cov_marker_center,point);
         
         pub_cubes.publish(marker);
         pub_cubes_cov.publish(cov_marker);
+        pub_center.publish(marker_center);
+        pub_center_cov.publish(cov_marker_center);
         count++;
 
         /*
