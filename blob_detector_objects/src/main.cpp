@@ -401,6 +401,10 @@ public:
                     point.position.x = object_world.at<float>(0);
                     point.position.y = object_world.at<float>(1);
                     point.position.z = object_world.at<float>(2);
+                    
+                    point.orientation.x = cov_matrix.at<float>(0,0);
+                    point.orientation.y = cov_matrix.at<float>(1,1);
+                    point.orientation.z = cov_matrix.at<float>(2,2);
                     point.orientation.w = cv::determinant(cov_matrix)*10e-6;
                     points_array.push_back(point);
                 }

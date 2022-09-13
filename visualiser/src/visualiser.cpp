@@ -35,7 +35,7 @@
 
 // ---------------------MACROS--------------------------------------
 #define SIZE_OF_OBJECT 0.5
-#define ELLIPSE_SCALE  2
+#define ELLIPSE_SCALE  1
 #define COV_RESOLUTION 2
 // -----------------------------------------------------------------
 using namespace geometry_msgs;
@@ -256,6 +256,7 @@ public:
     visualization_msgs::Marker drawCovariance(visualization_msgs::Marker cov_marker, Pose point){
         // ---- covariance visualization ------
 
+            ROS_INFO_STREAM(point.orientation.x<<" "<<point.orientation.y<<" "<<point.orientation.z);
             for(float i=-COV_RESOLUTION;i<COV_RESOLUTION;i+=0.2)
             {
                 for(float j =-COV_RESOLUTION;j<COV_RESOLUTION;j+=0.2)
@@ -264,9 +265,13 @@ public:
                     {
                         //create
                         geometry_msgs::Point p;
+                        float sigma_x = point.orientation.x;
+                        float sigma_y = point.orientation.y;
+                        float sigma_z = point.orientation.z;
 
+                        float sigma_mean = (sigma_x + sigma_y + sigma_z)/3.0;
                         //filter
-                        if (std::abs(((std::pow((i/1),2) + std::pow((j/1),2)+std::pow((k/1),2))-ELLIPSE_SCALE))<=0.001)
+                        if(std::abs((std::pow((i/sigma_x),2) + std::pow((j/sigma_y),2)+std::pow((k/sigma_z),2))-(ELLIPSE_SCALE*std::pow((1/sigma_mean),2)))<=0.001)
                         {
                            p.x = point.position.x+i;
                            p.y = point.position.y+j;
