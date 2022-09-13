@@ -331,12 +331,14 @@ public:
         cv::Mat depth_image  = ReturnCVMatImageFromDepthMsg(depth_msg);
 
         std::vector<Pose> points_array {};
-        Pose point;
-        point.position.x = '\0';
-        point.position.y = '\0';
-        point.position.z = '\0';
-        point.orientation.w = '\0';
-        points_array.push_back(point); 
+        // Pose point;
+        // point.position.x = '\0';
+        // point.position.y = '\0';
+        // point.position.z = '\0';
+        // point.orientation.w = '\0';
+        // points_array.push_back(point);
+
+
         // -->> Operations on image ----
         cv::cvtColor(cv_image, cv_image, cv::COLOR_BGR2RGB);
         

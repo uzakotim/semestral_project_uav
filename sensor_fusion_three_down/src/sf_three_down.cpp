@@ -565,10 +565,22 @@ public:
 
         float x_avg,y_avg,z_avg,cov_avg,max_radius;
 
-        x_avg = SensFuseThree::getAverage(all_x);
-        y_avg = SensFuseThree::getAverage(all_y);
-        z_avg = SensFuseThree::getAverage(all_z);
-        cov_avg = SensFuseThree::getAverage(all_cov);
+        if (all_x.size()<2)
+        {
+            x_avg = prevState.x;
+            y_avg = prevState.y;
+            z_avg = prevState.z;
+            cov_avg = 100;
+            max_radius = 2;
+        }
+        else
+        {
+            x_avg = SensFuseThree::getAverage(all_x);
+            y_avg = SensFuseThree::getAverage(all_y);
+            z_avg = SensFuseThree::getAverage(all_z);
+            cov_avg = SensFuseThree::getAverage(all_cov);
+            max_radius = all_radius.top();
+        }
 
         cv::Point3f predictPt = PredictUsingKalmanFilter();
         center3D.x = x_avg;
@@ -578,8 +590,6 @@ public:
 
         cv::Point3f statePt = UpdateKalmanFilter(measurement);
 
-        // size_t n = all_radius.size();
-        max_radius = all_radius.top();
         ROS_INFO_STREAM("Centroid: x "<<x_avg<<" y "<<y_avg<<" z "<<z_avg<<'\n');
         ROS_INFO_STREAM("Radius: r "<<max_radius<<'\n');
         goal_x = statePt.x;
