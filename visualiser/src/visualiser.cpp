@@ -35,6 +35,8 @@
 
 // ---------------------MACROS--------------------------------------
 #define SIZE_OF_OBJECT 0.5
+#define ELLIPSE_SCALE  2
+#define COV_RESOLUTION 2
 // -----------------------------------------------------------------
 using namespace geometry_msgs;
 using namespace message_filters;
@@ -48,8 +50,10 @@ class Visualiser
 public:
 
 // ---------------------PUB and SUB---------------------------------
-    ros::Publisher pub_blobs;
+    ros::Publisher pub_cubes;
+    ros::Publisher pub_cubes_cov;
     ros::Publisher pub_center;
+    ros::Publisher pub_center_cov;
 
 
     message_filters::Subscriber<PoseArray> obj_sub;
@@ -63,8 +67,10 @@ public:
     std::string sub_pose_topic          = "";
     std::string sub_yaw_topic           = "";
 
-    std::string pub_blobs_topic          = "";
-    std::string pub_center_topic          = "";
+    std::string pub_cubes_topic               = "";
+    std::string pub_cubes_cov_topic           = "";
+    std::string pub_center_topic              = "";
+    std::string pub_center_cov_topic          = "";
 
     //---Kalman Filter Parameters---->>----
 
@@ -122,15 +128,25 @@ public:
         obj_secondary_sub.subscribe (nh,sub_obj_topic_secondary,1);
         obj_third_sub.subscribe (nh,sub_obj_topic_third,1);
         // publishers
-        pub_blobs_topic += "/visualiser";
-        pub_blobs_topic += "/blobs/";
+        pub_cubes_topic += "/visualiser";
+        pub_cubes_topic += "/cubes/";
+
+        pub_cubes_cov_topic += "/visualiser";
+        pub_cubes_cov_topic += "/cubes_cov/";
 
         pub_center_topic += "/visualiser";
         pub_center_topic += "/center/";
 
-        pub_blobs = nh.advertise<visualization_msgs::Marker>(pub_blobs_topic,1);        
-        // pub_center = nh.advertise<visualization_msgs::MarkerArray>(pub_center_topic,1);        
-    
+        pub_center_cov_topic += "/visualiser";
+        pub_center_cov_topic += "/center_cov/";
+
+
+        pub_cubes       = nh.advertise<visualization_msgs::Marker>(pub_cubes_topic,1);        
+        pub_cubes_cov   = nh.advertise<visualization_msgs::Marker>(pub_cubes_cov_topic,1);        
+        pub_center      = nh.advertise<visualization_msgs::Marker>(pub_center_topic,1);        
+        pub_center_cov  = nh.advertise<visualization_msgs::Marker>(pub_center_cov_topic,1);        
+
+
         sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub,obj_third_sub));
         sync->registerCallback(boost::bind(&Visualiser::callback_three,this, _1,_2,_3));
         // client = nh.serviceClient<mrs_msgs::ReferenceStampedSrv>(pub_pose_topic);
@@ -237,6 +253,33 @@ public:
             return std::accumulate(v.begin(), v.end(), 0.0) / v.size();
         }
     }
+    visualization_msgs::Marker drawCovariance(visualization_msgs::Marker cov_marker, Pose point){
+        // ---- covariance visualization ------
+
+            for(float i=-COV_RESOLUTION;i<COV_RESOLUTION;i+=0.2)
+            {
+                for(float j =-COV_RESOLUTION;j<COV_RESOLUTION;j+=0.2)
+                {
+                    for(float k=-COV_RESOLUTION;k<COV_RESOLUTION;k+=0.2)
+                    {
+                        //create
+                        geometry_msgs::Point p;
+
+                        //filter
+                        if (std::abs(((std::pow((i/1),2) + std::pow((j/1),2)+std::pow((k/1),2))-ELLIPSE_SCALE))<=0.001)
+                        {
+                           p.x = point.position.x+i;
+                           p.y = point.position.y+j;
+                           p.z = point.position.z+k;
+
+                           cov_marker.points.push_back(p);
+                        }
+                    }
+                }
+            }
+        return cov_marker;
+            // ---------------------------------------
+    }
     
     void callback_three(PoseArrayConstPtr obj,PoseArrayConstPtr obj_secondary,PoseArrayConstPtr obj_third)
     {
@@ -244,12 +287,12 @@ public:
         //------------MEASUREMENTS------------------------ 
 
         visualization_msgs::MarkerArray marker_array;
-        // ---- Marker message with centroids ----
 
+        // ---- Marker message with centroids ----
         visualization_msgs::Marker marker;
         marker.header.frame_id = "base_link";
         marker.header.stamp = ros::Time();
-        marker.ns = "marker_test_cube_list";
+        marker.ns = "marker_cube_list";
         marker.id = 0;
         marker.type = visualization_msgs::Marker::CUBE_LIST;
         marker.action = visualization_msgs::Marker::ADD;
@@ -269,6 +312,33 @@ public:
         marker.color.a = 1.0;
         // ----------------------------------------------
 
+        // ---- Marker message with centroids ----
+        visualization_msgs::Marker cov_marker;
+        cov_marker.header.frame_id = "base_link";
+        cov_marker.header.stamp = ros::Time();
+        cov_marker.ns = "marker_covariance_list";
+        cov_marker.id = 0;
+        cov_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+        cov_marker.action = visualization_msgs::Marker::ADD;
+        // cov_marker.pose.position.x = 0;
+        // cov_marker.pose.position.y = 0;
+        // cov_marker.pose.position.z = 0;
+        cov_marker.pose.orientation.x = 0.0;
+        cov_marker.pose.orientation.y = 0.0;
+        cov_marker.pose.orientation.z = 0.0;
+        cov_marker.pose.orientation.w = 1.0;
+        cov_marker.scale.x = SIZE_OF_OBJECT/10;
+        cov_marker.scale.y = SIZE_OF_OBJECT/10;
+        cov_marker.scale.z = SIZE_OF_OBJECT/10;
+        cov_marker.color.r = 0.0;
+        cov_marker.color.g = 1.0;
+        cov_marker.color.b = 0.0;
+        cov_marker.color.a = 1.0;
+        // ----------------------------------------------
+
+
+
+
         std::vector<float> all_x,all_y,all_z,all_cov;
         std::priority_queue<float> all_radius;
         for (Pose point : obj->poses)
@@ -286,6 +356,8 @@ public:
 
             marker.points.push_back(p);
 
+            cov_marker = Visualiser::drawCovariance(cov_marker,point);
+
 
         }
         for (Pose point : obj_secondary->poses)
@@ -301,8 +373,7 @@ public:
             p.z = point.position.z;
 
             marker.points.push_back(p);
-
-
+            cov_marker = Visualiser::drawCovariance(cov_marker,point);
        }
         for (Pose point : obj_third->poses)
         {
@@ -317,11 +388,10 @@ public:
             p.z = point.position.z;
 
             marker.points.push_back(p);
-
-
-
+            
+            cov_marker = Visualiser::drawCovariance(cov_marker,point);
         }
-        // marker_array.markers.push_back(marker);
+       
 
         float x_avg,y_avg,z_avg,cov_avg,max_radius;
 
@@ -340,8 +410,8 @@ public:
         ROS_INFO_STREAM("Centroid: x "<<x_avg<<" y "<<y_avg<<" z "<<z_avg<<'\n');
         
         
-        pub_blobs.publish(marker);
-
+        pub_cubes.publish(marker);
+        pub_cubes_cov.publish(cov_marker);
         count++;
 
         /*
