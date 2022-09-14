@@ -232,7 +232,7 @@ public:
                                                         0,0,0,1,0,0,
                                                         0,0,0,0,1,0,
                                                         0,0,0,0,0,1);
-        measurement.setTo(cv::Scalar(0));
+        
         
 
         setIdentity(KF.measurementMatrix);
@@ -525,6 +525,9 @@ public:
             KF.statePre.at<float>(3) = 0;
             KF.statePre.at<float>(4) = 0;
             KF.statePre.at<float>(5) = 0;
+
+            // was previously at initialization and set to Scalar(0)
+            measurement.setTo(cv::Scalar(init_x,init_y,0.5));
         }
 
 

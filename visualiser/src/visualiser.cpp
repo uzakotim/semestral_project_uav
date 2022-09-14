@@ -29,13 +29,9 @@
 #include "visualization_msgs/MarkerArray.h"
 #include <queue>
 
-
-
-
-
 // ---------------------MACROS--------------------------------------
 #define SIZE_OF_OBJECT 0.5
-#define ELLIPSE_SCALE  0.125
+#define ELLIPSE_SCALE  0.0645
 #define COV_RESOLUTION 3
 // -----------------------------------------------------------------
 using namespace geometry_msgs;
@@ -151,7 +147,6 @@ public:
 
         sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub,obj_third_sub));
         sync->registerCallback(boost::bind(&Visualiser::callback_three,this, _1,_2,_3));
-        // client = nh.serviceClient<mrs_msgs::ReferenceStampedSrv>(pub_pose_topic);
         
 
         //---Kalman Filter Parameters---->>----
@@ -161,7 +156,7 @@ public:
                                                         0,0,0,1,0,0,
                                                         0,0,0,0,1,0,
                                                         0,0,0,0,0,1);
-        measurement.setTo(cv::Scalar(0));
+        // measurement.setTo(cv::Scalar(0));
         
 
         setIdentity(KF.measurementMatrix);
@@ -259,11 +254,11 @@ public:
         // ---- covariance visualization ------
 
             ROS_INFO_STREAM(point.orientation.x<<" "<<point.orientation.y<<" "<<point.orientation.z);
-            for(float i=-COV_RESOLUTION;i<COV_RESOLUTION;i+=0.2)
+            for(float i=-COV_RESOLUTION;i<COV_RESOLUTION;i+=0.1)
             {
-                for(float j =-COV_RESOLUTION;j<COV_RESOLUTION;j+=0.2)
+                for(float j =-COV_RESOLUTION;j<COV_RESOLUTION;j+=0.1)
                 {
-                    for(float k=-COV_RESOLUTION;k<COV_RESOLUTION;k+=0.2)
+                    for(float k=-COV_RESOLUTION;k<COV_RESOLUTION;k+=0.1)
                     {
                         //create
                         geometry_msgs::Point p;
@@ -273,8 +268,7 @@ public:
 
                         // float sigma_mean = (sigma_x + sigma_y + sigma_z)/3.0;
                         //filter
-                        if(std::abs((std::pow((i/(ELLIPSE_SCALE*sigma_x)),2) + std::pow((j/(ELLIPSE_SCALE*sigma_y)),2)+std::pow((k/(ELLIPSE_SCALE*sigma_z)),2))-1.0)<=0.1)
-                        {
+                        if(std::abs((std::pow((i/(ELLIPSE_SCALE*sigma_x)),2) + std::pow((k/(ELLIPSE_SCALE*sigma_z)),2)+std::pow((j/(ELLIPSE_SCALE*sigma_y)),2))-1.0)<=0.01){
                            p.x = point.position.x+i;
                            p.y = point.position.y+j;
                            p.z = point.position.z+k;
@@ -338,9 +332,9 @@ public:
         cov_marker.scale.y = SIZE_OF_OBJECT/10;
         cov_marker.scale.z = SIZE_OF_OBJECT/10;
         cov_marker.color.r = 0.0;
-        cov_marker.color.g = 1.0;
-        cov_marker.color.b = 0.0;
-        cov_marker.color.a = 0.5;
+        cov_marker.color.g = 0.5;
+        cov_marker.color.b = 1.0;
+        cov_marker.color.a = 1.0;
         // ----------------------------------------------
 
 
@@ -363,9 +357,9 @@ public:
         marker_center.scale.x = SIZE_OF_OBJECT;
         marker_center.scale.y = SIZE_OF_OBJECT;
         marker_center.scale.z = SIZE_OF_OBJECT;
-        marker_center.color.r = 1.0;
+        marker_center.color.r = 0.43;
         marker_center.color.g = 1.0;
-        marker_center.color.b = 0.0;
+        marker_center.color.b = 0.44;
         marker_center.color.a = 1.0;
         // ----------------------------------------------
 
@@ -387,10 +381,10 @@ public:
         cov_marker_center.scale.x = SIZE_OF_OBJECT/10;
         cov_marker_center.scale.y = SIZE_OF_OBJECT/10;
         cov_marker_center.scale.z = SIZE_OF_OBJECT/10;
-        cov_marker_center.color.r = 1.0;
-        cov_marker_center.color.g = 0.647;
-        cov_marker_center.color.b = 0.0;
-        cov_marker_center.color.a = 0.5;
+        cov_marker_center.color.r = 0.4;
+        cov_marker_center.color.g = 0.8;
+        cov_marker_center.color.b = 0.67;
+        cov_marker_center.color.a = 1.0;
         // ----------------------------------------------
 
         std::vector<float> all_x,all_y,all_z,all_cov;
@@ -495,26 +489,6 @@ public:
 
         pub_markers.publish(marker_array);
         count++;
-
-        /*
-
-        CODE IN PYTHON
-        
-        marker                  = Marker()
-        marker.header.frame_id  = "/map"
-        marker.type             = marker.SPHERE_LIST
-        marker.action           = marker.ADD
-        marker.scale.x          = 0.1
-        marker.scale.y          = 0.1
-        marker.scale.z          = 0.1
-        marker.color.a          = 1.0
-        marker.color.r          = 0.0
-        marker.color.g          = 0.0
-        marker.color.b          = 1.0
-        marker.pose.orientation.w = 1.0
-        marker.points           = points
-        self.marker_array.markers.append(marker)
-        */
     }
 };
 

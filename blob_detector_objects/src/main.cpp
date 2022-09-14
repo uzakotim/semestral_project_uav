@@ -1,6 +1,7 @@
 // Copyright [2021] [Timur Uzakov]
 #include <cv_bridge/cv_bridge.h>
 
+
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/Pose.h>
@@ -15,6 +16,7 @@
 #include <nav_msgs/Odometry.h>
 
 // include opencv2
+#include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/video/tracking.hpp>
@@ -322,7 +324,7 @@ public:
 
     void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg, const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
-        ROS_INFO("Synchronized\n");
+        // ROS_INFO("Synchronized\n");
 
         std_msgs::Header    msg_header  = depth_msg->header;
         std::string         frame_id    = msg_header.frame_id;
@@ -396,15 +398,41 @@ public:
                     object_world = ObjectCoordinateToWorld(object_coord,yaw_value,state,offset);
                     // ROS_INFO_STREAM("[OBJECT " << i << " ]:" << object_world.at<float>(0)<<" | " << object_world.at<float>(1)<< " | "<< object_world.at<float>(2));
                 
+
+                    cv::PCA pt_pca(cov_matrix, cv::Mat(), CV_PCA_DATA_AS_ROW, 0);
+
+                    // Mean
+                    // Rows: 1 Cols: 6
+                    cv::Mat pt_mean = pt_pca.mean;
+
+                    // Eigen values
+                    // In highest to lowest order
+                    // Rows: 6 Cols: 1
+                    cv::Mat pt_eig_vals = pt_pca.eigenvalues;
+
+                    // Eigen vectors
+                    cv::Mat pt_eig_vecs = pt_pca.eigenvectors;
+
+                    float l1 = pt_eig_vals.at<float>(0,0);
+                    float l2 = pt_eig_vals.at<float>(1,0);
+                    float l3 = pt_eig_vals.at<float>(2,0);
+ 
+                    double scale95 = sqrt(5.991);
+                    double R1 = scale95 * sqrt(l1);
+                    double R2 = scale95 * sqrt(l2);
+                    double R3 = scale95 * sqrt(l3);
+
+
                     // Adding point to array
                     Pose point;
                     point.position.x = object_world.at<float>(0);
                     point.position.y = object_world.at<float>(1);
                     point.position.z = object_world.at<float>(2);
                     
-                    point.orientation.x = cov_matrix.at<float>(0,0);
-                    point.orientation.y = cov_matrix.at<float>(1,1);
-                    point.orientation.z = cov_matrix.at<float>(2,2);
+                    point.orientation.x = R1;
+                    point.orientation.y = R2;
+                    point.orientation.z = R3;
+                    ROS_INFO_STREAM(R1<<" "<<R2<<" "<<R3);
                     point.orientation.w = cv::determinant(cov_matrix)*10e-6;
                     points_array.push_back(point);
                 }
