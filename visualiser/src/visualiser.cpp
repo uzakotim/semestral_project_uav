@@ -307,9 +307,9 @@ public:
         marker.scale.x = SIZE_OF_OBJECT;
         marker.scale.y = SIZE_OF_OBJECT;
         marker.scale.z = SIZE_OF_OBJECT;
-        marker.color.r = 0.0;
-        marker.color.g = 0.0;
-        marker.color.b = 1.0;
+        marker.color.r = 0.54;
+        marker.color.g = 0.17;
+        marker.color.b = 0.89;
         marker.color.a = 1.0;
         // ----------------------------------------------
 
@@ -331,10 +331,10 @@ public:
         cov_marker.scale.x = SIZE_OF_OBJECT/10;
         cov_marker.scale.y = SIZE_OF_OBJECT/10;
         cov_marker.scale.z = SIZE_OF_OBJECT/10;
-        cov_marker.color.r = 0.0;
-        cov_marker.color.g = 0.5;
-        cov_marker.color.b = 1.0;
-        cov_marker.color.a = 1.0;
+        cov_marker.color.r = 0.54;
+        cov_marker.color.g = 0.41;
+        cov_marker.color.b = 0.8;
+        cov_marker.color.a = 0.9;
         // ----------------------------------------------
 
 
@@ -357,9 +357,9 @@ public:
         marker_center.scale.x = SIZE_OF_OBJECT;
         marker_center.scale.y = SIZE_OF_OBJECT;
         marker_center.scale.z = SIZE_OF_OBJECT;
-        marker_center.color.r = 0.43;
-        marker_center.color.g = 1.0;
-        marker_center.color.b = 0.44;
+        marker_center.color.r = 0.93;
+        marker_center.color.g = 0.79;
+        marker_center.color.b = 0.0;
         marker_center.color.a = 1.0;
         // ----------------------------------------------
 
@@ -381,10 +381,10 @@ public:
         cov_marker_center.scale.x = SIZE_OF_OBJECT/10;
         cov_marker_center.scale.y = SIZE_OF_OBJECT/10;
         cov_marker_center.scale.z = SIZE_OF_OBJECT/10;
-        cov_marker_center.color.r = 0.4;
-        cov_marker_center.color.g = 0.8;
-        cov_marker_center.color.b = 0.67;
-        cov_marker_center.color.a = 1.0;
+        cov_marker_center.color.r = 0.93;
+        cov_marker_center.color.g = 0.46;
+        cov_marker_center.color.b = 0.0;
+        cov_marker_center.color.a = 0.9;
         // ----------------------------------------------
 
         std::vector<float> all_x,all_y,all_z,all_cov;

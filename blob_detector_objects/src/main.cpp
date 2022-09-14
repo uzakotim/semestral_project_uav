@@ -41,7 +41,12 @@ using namespace sensor_msgs;
 #define CONTROLLER_PERIOD 0.001
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
+
+#define PERFORMANCE
+
 #define RATE 1000
+#define SCALE95 2.447652
+
 
 class BlobDetector
 {
@@ -106,6 +111,14 @@ public:
     // auxilary parameters
     float yaw_value;
     u_int64_t counter{0};
+
+    float l1,l2,l3;
+    float R1,R2,R3;
+    
+    cv::Point2d statePt2D;
+    cv::Point3d center3D;
+    cv::Mat offset,RotationMatrix;   
+    double newArea;
 
     BlobDetector(char* name)
     {
@@ -294,37 +307,36 @@ public:
         return      statePt;
     }
 
-    int FindMaxAreaContourId(std::vector<std::vector<cv::Point>> contours)
-    {
-        // Function for finding maximal size contour
-        double  maxArea          = 0;
-        int     maxAreaContourId = -1;
+    // int FindMaxAreaContourId(std::vector<std::vector<cv::Point>> contours)
+    // {
+    //     // Function for finding maximal size contour
+    //     double  maxArea          = 0;
+    //     int     maxAreaContourId = -1;
 
-        for (size_t i = 0;i<contours.size();i++)
-        {
-                double   newArea = cv::contourArea(contours.at(i));
-                if(newArea > maxArea)
-                {
-                        maxArea = newArea;
-                        maxAreaContourId = i;
-                }
-        }
-        return maxAreaContourId;
-    }
+    //     for (size_t i = 0;i<contours.size();i++)
+    //     {
+    //             double   newArea = cv::contourArea(contours.at(i));
+    //             if(newArea > maxArea)
+    //             {
+    //                     maxArea = newArea;
+    //                     maxAreaContourId = i;
+    //             }
+    //     }
+    //     return maxAreaContourId;
+    // }
     
     cv::Mat ObjectCoordinateToWorld(const cv::Mat &object_position,const float &yaw_value,const cv::Mat &drone_position,const cv::Mat &offset_vector)
     {
         // Function for transforming object position to global frame
-        cv::Mat RotationMatrix4     = (cv::Mat_<float>(3,3) << cos(yaw_value - M_PI/2),-sin(yaw_value - M_PI/2),0, sin(yaw_value-M_PI/2),cos(yaw_value-M_PI/2),0,  0,0,1) ;                 
-        cv::Mat rotated_vector      = RotationMatrix4 * scale_matrix * (object_position - shift_to_center);
-        cv::Mat point = drone_position + rotated_vector + offset_vector; 
+        RotationMatrix = (cv::Mat_<float>(3,3) << cos(yaw_value - M_PI/2),-sin(yaw_value - M_PI/2),0, sin(yaw_value-M_PI/2),cos(yaw_value-M_PI/2),0,  0,0,1) ;
+        cv::Mat point  = drone_position + (RotationMatrix * scale_matrix * (object_position - shift_to_center)) + offset_vector; 
         return point;
     }
 
 
     void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg, const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
-        // ROS_INFO("Synchronized\n");
+        ROS_INFO("Synchronized\n");
 
         std_msgs::Header    msg_header  = depth_msg->header;
         std::string         frame_id    = msg_header.frame_id;
@@ -333,20 +345,11 @@ public:
         cv::Mat depth_image  = ReturnCVMatImageFromDepthMsg(depth_msg);
 
         std::vector<Pose> points_array {};
-        // Pose point;
-        // point.position.x = '\0';
-        // point.position.y = '\0';
-        // point.position.z = '\0';
-        // point.orientation.w = '\0';
-        // points_array.push_back(point);
-
-
         // -->> Operations on image ----
         cv::cvtColor(cv_image, cv_image, cv::COLOR_BGR2RGB);
         
         // 1) smoothing
         //cv::Mat     blurred_image   = GaussianBlur(cv_image);
-        
         // 2) conversion to hsv
         cv::Mat     image_HSV       = BGRtoHSV(cv_image);
         // 3) finding orange mask
@@ -360,20 +363,17 @@ public:
         //---------------------MEASUREMENTS---------------------------
         state           = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
         yaw_value       = (float)(yaw->state[0]);
-        cv::Mat offset  = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
+        offset          = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
         
         for (size_t i = 0;i<contours.size();i++)
         {
-                double   newArea = cv::contourArea(contours.at(i));
+                newArea = cv::contourArea(contours.at(i));
                 if(newArea > BLOB_SIZE)
                 {   
 
                     PredictUsingKalmanFilter();
                     // Finding blob's center       
                     cv::Point2f center = FindCenter(contours, i);
-
-
-                    cv::Point3d center3D;
                     center3D.x = center.x;
                     center3D.y = center.y;
                     unsigned short val = depth_image.at<unsigned short>(center.y, center.x);
@@ -384,43 +384,43 @@ public:
                     cv::Point3d statePt = UpdateKalmanFilter(measurement);
                     cov_matrix = KF.errorCovPost;
 
-                    // Drawing Point
-                    float       radius = FindRadius(contours, i);
-                    cv::Point2d statePt2D;
                     statePt2D.x = center3D.x;
                     statePt2D.y = center3D.y;
-                    cv::circle  (drawing, statePt2D, int(radius), detection_color, 2 );
                     cv::circle  (drawing, statePt2D, 5, detection_color, 10);
+                    // Drawing Point
+                    // uncomment for drawing the radius around corner
+
+                    // float radius = FindRadius(contours, i);
+                    // cv::circle  (drawing, statePt2D, int(radius), detection_color, 2 );
+                    
 
 
                     // Conversion to global coordinates
                     object_coord    = (cv::Mat_<float>(3,1)<< (float)statePt.x, (float)statePt.y, (float)statePt.z);
                     object_world = ObjectCoordinateToWorld(object_coord,yaw_value,state,offset);
-                    // ROS_INFO_STREAM("[OBJECT " << i << " ]:" << object_world.at<float>(0)<<" | " << object_world.at<float>(1)<< " | "<< object_world.at<float>(2));
                 
 
+                    // Calculation of eigen values
                     cv::PCA pt_pca(cov_matrix, cv::Mat(), CV_PCA_DATA_AS_ROW, 0);
 
+                    // uncomment for additional computations                    
                     // Mean
-                    // Rows: 1 Cols: 6
-                    cv::Mat pt_mean = pt_pca.mean;
-
-                    // Eigen values
-                    // In highest to lowest order
-                    // Rows: 6 Cols: 1
-                    cv::Mat pt_eig_vals = pt_pca.eigenvalues;
+                    // cv::Mat pt_mean = pt_pca.mean;
 
                     // Eigen vectors
-                    cv::Mat pt_eig_vecs = pt_pca.eigenvectors;
+                    // cv::Mat pt_eig_vecs = pt_pca.eigenvectors;
 
-                    float l1 = pt_eig_vals.at<float>(0,0);
-                    float l2 = pt_eig_vals.at<float>(1,0);
-                    float l3 = pt_eig_vals.at<float>(2,0);
+                    //Eigen values
+                    cv::Mat pt_eig_vals = pt_pca.eigenvalues;
+
+                    l1 = pt_eig_vals.at<float>(0,0);
+                    l2 = pt_eig_vals.at<float>(1,0);
+                    l3 = pt_eig_vals.at<float>(2,0);
  
-                    double scale95 = sqrt(5.991);
-                    double R1 = scale95 * sqrt(l1);
-                    double R2 = scale95 * sqrt(l2);
-                    double R3 = scale95 * sqrt(l3);
+                    // double scale95 = sqrt(5.991);
+                    R1 = SCALE95 * sqrt(l1);
+                    R2 = SCALE95 * sqrt(l2);
+                    R3 = SCALE95 * sqrt(l3);
 
 
                     // Adding point to array
