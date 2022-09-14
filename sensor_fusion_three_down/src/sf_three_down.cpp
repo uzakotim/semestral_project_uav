@@ -559,18 +559,16 @@ public:
 
             float value = std::sqrt(std::pow(point.position.x-prevState.x,2) + std::pow(point.position.y-prevState.y,2));
             all_radius.push(value);
-            // all_radius.insert(it,value);
-            // auto it = std::lower_bound(all_radius.cbegin(),all_radius.cend(),value);
         }
 
         float x_avg,y_avg,z_avg,cov_avg,max_radius;
 
-        if (all_x.size()<2)
+        if (all_x.size()==0)
         {
             x_avg = prevState.x;
             y_avg = prevState.y;
             z_avg = prevState.z;
-            cov_avg = 100;
+            cov_avg = 10;
             max_radius = 2;
         }
         else

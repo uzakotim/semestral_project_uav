@@ -50,10 +50,11 @@ class Visualiser
 public:
 
 // ---------------------PUB and SUB---------------------------------
-    ros::Publisher pub_cubes;
-    ros::Publisher pub_cubes_cov;
-    ros::Publisher pub_center;
-    ros::Publisher pub_center_cov;
+    // ros::Publisher pub_cubes;
+    // ros::Publisher pub_cubes_cov;
+    // ros::Publisher pub_center;
+    // ros::Publisher pub_center_cov;
+    ros::Publisher pub_markers;
 
 
     message_filters::Subscriber<PoseArray> obj_sub;
@@ -71,6 +72,7 @@ public:
     std::string pub_cubes_cov_topic           = "";
     std::string pub_center_topic              = "";
     std::string pub_center_cov_topic          = "";
+    std::string pub_markers_topic             = "";
 
     //---Kalman Filter Parameters---->>----
 
@@ -84,12 +86,6 @@ public:
 
     cv::Mat main_cov,secondary_cov, third_cov;
     // ---<< Kalman Filter Parameters ----
-
-    // ---------OUTPUT MSG-----------------------------------
-    boost::array<float,4> goal = {0.0, 0.0, 0.0, 0.0};
-    ros::ServiceClient client;
-    mrs_msgs::ReferenceStampedSrv srv;
-
     //---------------------------------------------------------
     u_int64_t count {0};
     //-----------------------------------------------------------------------------------------------------------------
@@ -128,23 +124,29 @@ public:
         obj_secondary_sub.subscribe (nh,sub_obj_topic_secondary,1);
         obj_third_sub.subscribe (nh,sub_obj_topic_third,1);
         // publishers
-        pub_cubes_topic += "/visualiser";
-        pub_cubes_topic += "/cubes/";
+        // pub_cubes_topic += "/visualiser";
+        // pub_cubes_topic += "/cubes/";
 
-        pub_cubes_cov_topic += "/visualiser";
-        pub_cubes_cov_topic += "/cubes_cov/";
+        // pub_cubes_cov_topic += "/visualiser";
+        // pub_cubes_cov_topic += "/cubes_cov/";
 
-        pub_center_topic += "/visualiser";
-        pub_center_topic += "/center/";
+        // pub_center_topic += "/visualiser";
+        // pub_center_topic += "/center/";
 
-        pub_center_cov_topic += "/visualiser";
-        pub_center_cov_topic += "/center_cov/";
+        // pub_center_cov_topic += "/visualiser";
+        // pub_center_cov_topic += "/center_cov/";
+
+        pub_markers_topic += "/visualiser";
+        pub_markers_topic += "/markers/";
 
 
-        pub_cubes       = nh.advertise<visualization_msgs::Marker>(pub_cubes_topic,1);        
-        pub_cubes_cov   = nh.advertise<visualization_msgs::Marker>(pub_cubes_cov_topic,1);        
-        pub_center      = nh.advertise<visualization_msgs::Marker>(pub_center_topic,1);        
-        pub_center_cov  = nh.advertise<visualization_msgs::Marker>(pub_center_cov_topic,1);        
+
+        // pub_cubes       = nh.advertise<visualization_msgs::Marker>(pub_cubes_topic,1);        
+        // pub_cubes_cov   = nh.advertise<visualization_msgs::Marker>(pub_cubes_cov_topic,1);        
+        // pub_center      = nh.advertise<visualization_msgs::Marker>(pub_center_topic,1);        
+        // pub_center_cov  = nh.advertise<visualization_msgs::Marker>(pub_center_cov_topic,1);        
+        
+        pub_markers     = nh.advertise<visualization_msgs::MarkerArray>(pub_markers_topic,1);        
 
 
         sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub,obj_third_sub));
@@ -307,7 +309,7 @@ public:
         marker.pose.orientation.x = 0.0;
         marker.pose.orientation.y = 0.0;
         marker.pose.orientation.z = 0.0;
-        marker.pose.orientation.w = 1.0;
+        marker.pose.orientation.w = 0.0; // 1.0
         marker.scale.x = SIZE_OF_OBJECT;
         marker.scale.y = SIZE_OF_OBJECT;
         marker.scale.z = SIZE_OF_OBJECT;
@@ -331,7 +333,7 @@ public:
         cov_marker.pose.orientation.x = 0.0;
         cov_marker.pose.orientation.y = 0.0;
         cov_marker.pose.orientation.z = 0.0;
-        cov_marker.pose.orientation.w = 1.0;
+        cov_marker.pose.orientation.w = 0.0;
         cov_marker.scale.x = SIZE_OF_OBJECT/10;
         cov_marker.scale.y = SIZE_OF_OBJECT/10;
         cov_marker.scale.z = SIZE_OF_OBJECT/10;
@@ -357,7 +359,7 @@ public:
         marker_center.pose.orientation.x = 0.0;
         marker_center.pose.orientation.y = 0.0;
         marker_center.pose.orientation.z = 0.0;
-        marker_center.pose.orientation.w = 1.0;
+        marker_center.pose.orientation.w = 0.0;
         marker_center.scale.x = SIZE_OF_OBJECT;
         marker_center.scale.y = SIZE_OF_OBJECT;
         marker_center.scale.z = SIZE_OF_OBJECT;
@@ -381,7 +383,7 @@ public:
         cov_marker_center.pose.orientation.x = 0.0;
         cov_marker_center.pose.orientation.y = 0.0;
         cov_marker_center.pose.orientation.z = 0.0;
-        cov_marker_center.pose.orientation.w = 1.0;
+        cov_marker_center.pose.orientation.w = 0.0;
         cov_marker_center.scale.x = SIZE_OF_OBJECT/10;
         cov_marker_center.scale.y = SIZE_OF_OBJECT/10;
         cov_marker_center.scale.z = SIZE_OF_OBJECT/10;
@@ -456,10 +458,7 @@ public:
         p.x = x_avg;
         p.y = y_avg;
         p.z = z_avg;
-        marker_center.points.push_back(p);
-
-      
-        
+        marker_center.points.push_back(p);        
         
         cv::Point3f predictPt = PredictUsingKalmanFilter();
         center3D.x = x_avg;
@@ -483,10 +482,18 @@ public:
 
         cov_marker_center = Visualiser::drawCovariance(cov_marker_center,point);
         
-        pub_cubes.publish(marker);
-        pub_cubes_cov.publish(cov_marker);
-        pub_center.publish(marker_center);
-        pub_center_cov.publish(cov_marker_center);
+        // pub_cubes.publish(marker);
+        // pub_cubes_cov.publish(cov_marker);
+        // pub_center.publish(marker_center);
+        // pub_center_cov.publish(cov_marker_center);
+
+
+        marker_array.markers.push_back(marker);
+        marker_array.markers.push_back(cov_marker);
+        marker_array.markers.push_back(marker_center);
+        marker_array.markers.push_back(cov_marker_center);
+
+        pub_markers.publish(marker_array);
         count++;
 
         /*
