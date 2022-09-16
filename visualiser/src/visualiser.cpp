@@ -289,6 +289,7 @@ public:
 
         if (PRINT_OUT == 1)
             ROS_INFO_STREAM("Synchronized");
+        cv::Point3f predictPt = PredictUsingKalmanFilter();
         //------------MEASUREMENTS------------------------ 
 
         visualization_msgs::MarkerArray marker_array;
@@ -458,7 +459,6 @@ public:
         p.z = z_avg;
         marker_center.points.push_back(p);        
         
-        cv::Point3f predictPt = PredictUsingKalmanFilter();
         center3D.x = x_avg;
         center3D.y = y_avg;
         center3D.z = z_avg;

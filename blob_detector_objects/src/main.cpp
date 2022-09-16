@@ -405,13 +405,6 @@ public:
                     // Calculation of eigen values
                     cv::PCA pt_pca(cov_matrix, cv::Mat(), CV_PCA_DATA_AS_ROW, 0);
 
-                    // uncomment for additional computations                    
-                    // Mean
-                    // cv::Mat pt_mean = pt_pca.mean;
-
-                    // Eigen vectors
-                    // cv::Mat pt_eig_vecs = pt_pca.eigenvectors;
-
                     //Eigen values
                     cv::Mat pt_eig_vals = pt_pca.eigenvalues;
 
