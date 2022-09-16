@@ -33,6 +33,7 @@
 #define SIZE_OF_OBJECT 0.5
 #define ELLIPSE_SCALE  0.0645
 #define COV_RESOLUTION 3
+#define PRINT_OUT 0
 // -----------------------------------------------------------------
 using namespace geometry_msgs;
 using namespace message_filters;
@@ -253,7 +254,8 @@ public:
     visualization_msgs::Marker drawCovariance(visualization_msgs::Marker cov_marker, Pose point){
         // ---- covariance visualization ------
 
-            ROS_INFO_STREAM(point.orientation.x<<" "<<point.orientation.y<<" "<<point.orientation.z);
+            if (PRINT_OUT == 1)
+                ROS_INFO_STREAM(point.orientation.x<<" "<<point.orientation.y<<" "<<point.orientation.z);
             for(float i=-COV_RESOLUTION;i<COV_RESOLUTION;i+=0.1)
             {
                 for(float j =-COV_RESOLUTION;j<COV_RESOLUTION;j+=0.1)
@@ -284,7 +286,9 @@ public:
     
     void callback_three(PoseArrayConstPtr obj,PoseArrayConstPtr obj_secondary,PoseArrayConstPtr obj_third)
     {
-        ROS_INFO_STREAM("Synchronized");
+
+        if (PRINT_OUT == 1)
+            ROS_INFO_STREAM("Synchronized");
         //------------MEASUREMENTS------------------------ 
 
         visualization_msgs::MarkerArray marker_array;
@@ -461,7 +465,9 @@ public:
         SetMeasurement(center3D);
 
         cv::Point3f statePt = UpdateKalmanFilter(measurement);
-        ROS_INFO_STREAM("Centroid: x "<<x_avg<<" y "<<y_avg<<" z "<<z_avg<<'\n');
+        
+        if (PRINT_OUT == 1)
+            ROS_INFO_STREAM("Centroid: x "<<x_avg<<" y "<<y_avg<<" z "<<z_avg<<'\n');
         
         cov_matrix = KF.errorCovPost;
 

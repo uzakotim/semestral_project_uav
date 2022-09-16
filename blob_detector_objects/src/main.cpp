@@ -46,7 +46,7 @@ using namespace sensor_msgs;
 
 #define RATE 1000
 #define SCALE95 2.447652
-
+#define PRINT_OUT 0
 
 class BlobDetector
 {
@@ -307,23 +307,23 @@ public:
         return      statePt;
     }
 
-    // int FindMaxAreaContourId(std::vector<std::vector<cv::Point>> contours)
-    // {
-    //     // Function for finding maximal size contour
-    //     double  maxArea          = 0;
-    //     int     maxAreaContourId = -1;
+    int FindMaxAreaContourId(std::vector<std::vector<cv::Point>> contours)
+    {
+        // Function for finding maximal size contour
+        double  maxArea          = 0;
+        int     maxAreaContourId = -1;
 
-    //     for (size_t i = 0;i<contours.size();i++)
-    //     {
-    //             double   newArea = cv::contourArea(contours.at(i));
-    //             if(newArea > maxArea)
-    //             {
-    //                     maxArea = newArea;
-    //                     maxAreaContourId = i;
-    //             }
-    //     }
-    //     return maxAreaContourId;
-    // }
+        for (size_t i = 0;i<contours.size();i++)
+        {
+                double   newArea = cv::contourArea(contours.at(i));
+                if(newArea > maxArea)
+                {
+                        maxArea = newArea;
+                        maxAreaContourId = i;
+                }
+        }
+        return maxAreaContourId;
+    }
     
     cv::Mat ObjectCoordinateToWorld(const cv::Mat &object_position,const float &yaw_value,const cv::Mat &drone_position,const cv::Mat &offset_vector)
     {
@@ -336,7 +336,9 @@ public:
 
     void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg, const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
     {
-        ROS_INFO("Synchronized\n");
+
+        if (PRINT_OUT == 1)
+            ROS_INFO("Synchronized\n");
 
         std_msgs::Header    msg_header  = depth_msg->header;
         std::string         frame_id    = msg_header.frame_id;
@@ -432,7 +434,9 @@ public:
                     point.orientation.x = R1;
                     point.orientation.y = R2;
                     point.orientation.z = R3;
-                    ROS_INFO_STREAM(R1<<" "<<R2<<" "<<R3);
+                    
+                    if (PRINT_OUT == 1)
+                        ROS_INFO_STREAM(R1<<" "<<R2<<" "<<R3);
                     point.orientation.w = cv::determinant(cov_matrix)*10e-6;
                     points_array.push_back(point);
                 }

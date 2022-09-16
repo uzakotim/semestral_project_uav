@@ -34,13 +34,13 @@
 
 // ---------------------MACROS--------------------------------------
 
-#define CALCULATION_STEPS 30 //10
-#define CALCULATIOM_STEPS_IN_MOTION 10 //5
+#define CALCULATION_STEPS 10 //10
+#define CALCULATIOM_STEPS_IN_MOTION 5 //5
 
 #define CONTROLLER_PERIOD 0.1
 
 // the most optimal value is 1, the less the faster motion
-#define CONTROL_GAIN_GOAL 500 //200
+#define CONTROL_GAIN_GOAL 200 //200
 #define CONTROL_GAIN_STATE 0.1  // 1
 #define CONTROL_GAIN_STATE_Z 0.01 // 100
 // influences how sharp are drone's motions - the lower the sharper
@@ -49,7 +49,7 @@
 // determines how fast drone optimises - the smaller the faster
 #define SEARCH_SIZE 8
 #define SEARCH_HEIGHT 3.0
-
+#define PRINT_OUT 0
 
 // -----------------------------------------------------------------
 using namespace geometry_msgs;
@@ -507,7 +507,8 @@ public:
     
     void callback_three(PoseArrayConstPtr obj,PoseArrayConstPtr obj_secondary,PoseArrayConstPtr obj_third, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
     {
-        ROS_INFO_STREAM("Synchronized");
+        if (PRINT_OUT == 1)
+            ROS_INFO_STREAM("Synchronized");
         //------------MEASUREMENTS------------------------    
         pose_x = (float)(pose->pose.pose.position.x);
         pose_y = (float)(pose->pose.pose.position.y);
@@ -592,9 +593,12 @@ public:
 
         cv::Point3f statePt = UpdateKalmanFilter(measurement);
 
-        ROS_INFO_STREAM("Centroid: x "<<center3D.x<<" y "<<center3D.y<<" z "<<center3D.z<<'\n');
-        ROS_INFO_STREAM("Radius: r "<<max_radius<<'\n');
-
+        if (PRINT_OUT == 1)
+        {
+            ROS_INFO_STREAM("Centroid: x "<<center3D.x<<" y "<<center3D.y<<" z "<<center3D.z<<'\n');
+            ROS_INFO_STREAM("Radius: r "<<max_radius<<'\n');
+        }
+        
         goal_yaw = (float)(atan2(statePt.y-pose_y,statePt.x-pose_x));
         
         master_pose = (cv::Mat_<float>(4,1) << statePt.x,statePt.y,statePt.z,goal_yaw);
