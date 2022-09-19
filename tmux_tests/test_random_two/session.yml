@@ -60,3 +60,8 @@ windows:
       layout: tiled
       panes:
         - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun visualiser_two visualiser_two $UAV_NAME1 $UAV_NAME2
+
+  - gz_rate:
+      layout: tiled
+      panes:
+        - waitForOdometry; sleep 5; gz physics -u 125

@@ -229,7 +229,15 @@ public:
                                                         0,0,0,0,1,0,
                                                         0,0,0,0,0,1);
         
-        
+        KF.statePre.at<float>(0) = 0;
+        KF.statePre.at<float>(1) = 0;
+        KF.statePre.at<float>(2) = 0;
+        KF.statePre.at<float>(3) = 0;
+        KF.statePre.at<float>(4) = 0;
+        KF.statePre.at<float>(5) = 0;
+
+        // was previously at initialization and set to Scalar(0)
+        measurement.setTo(cv::Scalar(0)); 
 
         setIdentity(KF.measurementMatrix);
         setIdentity(KF.processNoiseCov,     cv::Scalar::all(10)); //Q
@@ -514,15 +522,7 @@ public:
             prevState.y = init_y;
             prevState.z = 0.5;
 
-            KF.statePre.at<float>(0) = init_x;
-            KF.statePre.at<float>(1) = init_y;
-            KF.statePre.at<float>(2) = 0.5;
-            KF.statePre.at<float>(3) = 0;
-            KF.statePre.at<float>(4) = 0;
-            KF.statePre.at<float>(5) = 0;
-
-            // was previously at initialization and set to Scalar(0)
-            measurement.setTo(cv::Scalar(init_x,init_y,0.5));
+            
         }
 
 
