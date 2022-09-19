@@ -24,85 +24,58 @@ windows:
       panes:
         - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[1]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos 0 -2 1 0.0"
         - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[2]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos -4 3 1 0.0"
-        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[3]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos  4 5 1 0.0"
+        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[3]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos  4 3 1 0.0"
   - control:
       layout: tiled
       panes:
         - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; roslaunch mrs_uav_general core.launch config_uav_manager:=./custom_configs/uav_manager.yaml
         - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; roslaunch mrs_uav_general core.launch config_uav_manager:=./custom_configs/uav_manager.yaml
         - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; roslaunch mrs_uav_general core.launch config_uav_manager:=./custom_configs/uav_manager.yaml
-        # - export UAV_NAME="uav${UAV_NUMBERS[4]}"; waitForOdometry; roslaunch mrs_uav_general core.launch config_uav_manager:=./custom_configs/uav_manager.yaml
   - automatic_start:
       layout: tiled
       panes:
         - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
         - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
         - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
-        # - export UAV_NAME="uav${UAV_NUMBERS[4]}"; waitForSimulation; roslaunch mrs_uav_general automatic_start.launch
   - takeoff:
       layout: tiled
       panes:
-        # { "uav${UAV_NUMBERS[1]}"
         - 'export UAV_NAME="uav${UAV_NUMBERS[1]}";
           waitForControl;
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
           sleep 2;
           rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
-        #}
-        #{ "uav${UAV_NUMBERS[2]}"
         - 'export UAV_NAME="uav${UAV_NUMBERS[2]}";
           waitForControl;
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
           sleep 2;
           rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
-        #}
-        # { "uav${UAV_NUMBERS[3]}"
         - 'export UAV_NAME="uav${UAV_NUMBERS[3]}";
           waitForControl;
           rosservice call /$UAV_NAME/mavros/cmd/arming 1;
           sleep 2;
           rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
-        #}
-        # { "uav${UAV_NUMBERS[4]}"
-        # - 'export UAV_NAME="uav${UAV_NUMBERS[4]}";
-        #   waitForControl;
-        #   rosservice call /$UAV_NAME/mavros/cmd/arming 1;
-        #   sleep 2;
-        #   rosservice call /$UAV_NAME/mavros/set_mode 0 offboard'
-        #}
-  # - goto:
-  #     layout: tiled
-  #     synchronize: after
-  #     panes:
-  #       - 'export UAV_NAME="uav${UAV_NUMBERS[1]}";
-  #         history -s rosservice call /$UAV_NAME/control_manager/goto \"goal: \[5.0, 0.0, 3.0, 0.0\]\";
-  #         history -s rosservice call /$UAV_NAME/control_manager/goto \"goal: \[-5.0, 0.0, 3.0, 0.0\]\"'
-  # - gazebo_camera_follow:
-      # layout: tiled
-      # panes:
-        # - waitForOdometry; gz camera -c gzclient_camera -f "uav${UAV_NUMBERS[1]}"; history -s gz camera -c gzclient_camera -f "uav${UAV_NUMBERS[1]}"
   - uav1:
       layout: tiled
       panes:
-        # - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main 0.0 -4.0 4.0 $UAV_NAME 1
         - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
-        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME1 $UAV_NAME2 $UAV_NAME3 1.57 4.0
-        # 0 - flying around OFF; 1 - flying around ON;
-
+        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME1 $UAV_NAME2 $UAV_NAME3 5.7 4.0
   - uav2:
       layout: tiled
       panes:
-        # - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main -4.0 4.0 4.0 $UAV_NAME 1
         - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
         - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME2 $UAV_NAME1 $UAV_NAME3 3.93 4.0 #3.93
   - uav3:
       layout: tiled
       panes:
-        # - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main 4.0 4.0 4.0 $UAV_NAME 1
         - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
-        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME3 $UAV_NAME1 $UAV_NAME2 5.5 4.0 #5.5
+        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME3 $UAV_NAME1 $UAV_NAME2 1.57 4.0 #5.5
 
   - visualiser:
       layout: tiled
       panes:
         - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun visualiser visualiser $UAV_NAME1 $UAV_NAME2 $UAV_NAME3
+  - gz_rate:
+      layout: tiled
+      panes:
+        - waitForOdometry; sleep 5; gz physics -u 125
