@@ -10,6 +10,9 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include <mrs_msgs/ReferenceStampedSrv.h>
 #include <mrs_msgs/EstimatedState.h>
+#include <mrs_msgs/PoseWithCovarianceArrayStamped.h>
+#include <mrs_msgs/PoseWithCovarianceIdentified.h>
+
 
 #include <nav_msgs/Odometry.h>
 #include <numeric>
@@ -30,10 +33,14 @@
 #include <queue>
 
 // ---------------------MACROS--------------------------------------
-#define SIZE_OF_OBJECT 0.5
-#define ELLIPSE_SCALE  0.0645
-#define COV_RESOLUTION 3
+#define COV_RESOLUTION 2
+#define COV_DISTANCE_BETWEEN_POINTS 0.05
+// #define ELLIPSE_SCALE  0.0645 
+#define ELLIPSE_SCALE  0.03225/2
+
 #define PRINT_OUT 0
+#define SCALE95 2.447652
+#define SIZE_OF_OBJECT 0.5
 // -----------------------------------------------------------------
 using namespace geometry_msgs;
 using namespace message_filters;
@@ -54,9 +61,9 @@ public:
     ros::Publisher pub_markers;
 
 
-    message_filters::Subscriber<PoseArray> obj_sub;
-    message_filters::Subscriber<PoseArray> obj_secondary_sub;
-    message_filters::Subscriber<PoseArray> obj_third_sub;
+    message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_sub;
+    message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_secondary_sub;
+    message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_third_sub;
 // -----------------------------------------------------------------
 
     std::string sub_obj_topic           = "";
@@ -86,10 +93,12 @@ public:
     //---------------------------------------------------------
     u_int64_t count {0};
     //-----------------------------------------------------------------------------------------------------------------
-    typedef sync_policies::ApproximateTime<PoseArray,PoseArray,PoseArray> MySyncPolicy;
+    typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped,PoseWithCovarianceArrayStamped,PoseWithCovarianceArrayStamped> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
 
+    float l1,l2,l3;
+    float R1,R2,R3;
 
     Visualiser(ros::NodeHandle nh,const char* &name_main, const char* &name_secondary,const char* &name_third)
     {   
@@ -162,7 +171,7 @@ public:
 
         setIdentity(KF.measurementMatrix);
         setIdentity(KF.processNoiseCov,     cv::Scalar::all(10)); //Q
-        setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10)); //R
+        setIdentity(KF.measurementNoiseCov, cv::Scalar::all(100)); //R
         setIdentity(KF.errorCovPost,        cv::Scalar::all(.1));
 
 
@@ -251,40 +260,48 @@ public:
             return std::accumulate(v.begin(), v.end(), 0.0) / v.size();
         }
     }
-    visualization_msgs::Marker drawCovariance(visualization_msgs::Marker cov_marker, Pose point){
+    visualization_msgs::Marker drawCovariance(visualization_msgs::Marker cov_marker, PoseWithCovarianceIdentified point){
         // ---- covariance visualization ------
 
-            if (PRINT_OUT == 1)
-                ROS_INFO_STREAM(point.orientation.x<<" "<<point.orientation.y<<" "<<point.orientation.z);
-            for(float i=-COV_RESOLUTION;i<COV_RESOLUTION;i+=0.1)
+        geometry_msgs::Point p;
+        float sigma_x = point.covariance[9];
+        float sigma_y = point.covariance[10];
+        float sigma_z = point.covariance[11];
+
+        double K1 = (double) ELLIPSE_SCALE*sigma_x;
+        double K2 = (double) ELLIPSE_SCALE*sigma_y;
+        double K3 = (double) ELLIPSE_SCALE*sigma_z;
+    
+        cv::Mat eig_vec_one = (cv::Mat_<float>(3,1)<<(float)point.covariance[0],(float)point.covariance[1],(float)point.covariance[2]);
+        cv::Mat eig_vec_two = (cv::Mat_<float>(3,1)<<(float)point.covariance[3],(float)point.covariance[4],(float)point.covariance[5]);
+        cv::Mat eig_vec_three = (cv::Mat_<float>(3,1)<<(float)point.covariance[6],(float)point.covariance[7],(float)point.covariance[8]);
+            
+        for(float i=-COV_RESOLUTION;i<COV_RESOLUTION;i+=COV_DISTANCE_BETWEEN_POINTS)
+        {
+            for(float j =-COV_RESOLUTION;j<COV_RESOLUTION;j+=COV_DISTANCE_BETWEEN_POINTS)
             {
-                for(float j =-COV_RESOLUTION;j<COV_RESOLUTION;j+=0.1)
+                for(float k=-COV_RESOLUTION;k<COV_RESOLUTION;k+=COV_DISTANCE_BETWEEN_POINTS)
                 {
-                    for(float k=-COV_RESOLUTION;k<COV_RESOLUTION;k+=0.1)
-                    {
-                        //create
-                        geometry_msgs::Point p;
-                        float sigma_x = point.orientation.x;
-                        float sigma_y = point.orientation.y;
-                        float sigma_z = point.orientation.z;
+                    cv::Mat sample_point = (cv::Mat_<float>(3,1)<<i,j,k);
+                    double first_distance  = eig_vec_one.dot(sample_point);
+                    double second_distance = eig_vec_two.dot(sample_point);
+                    double third_distance  = eig_vec_three.dot(sample_point);
 
-                        // float sigma_mean = (sigma_x + sigma_y + sigma_z)/3.0;
-                        //filter
-                        if(std::abs((std::pow((i/(ELLIPSE_SCALE*sigma_x)),2) + std::pow((k/(ELLIPSE_SCALE*sigma_z)),2)+std::pow((j/(ELLIPSE_SCALE*sigma_y)),2))-1.0)<=0.01){
-                           p.x = point.position.x+i;
-                           p.y = point.position.y+j;
-                           p.z = point.position.z+k;
+                    if(std::abs((std::pow((first_distance/K1),2) + std::pow((second_distance/K2),2)+std::pow((third_distance/K3),2))-1.0)<=0.01){
+                        p.x = point.pose.position.x+i;
+                        p.y = point.pose.position.y+j;
+                        p.z = point.pose.position.z+k;
 
-                           cov_marker.points.push_back(p);
-                        }
+                        cov_marker.points.push_back(p);
                     }
                 }
             }
+        }
         return cov_marker;
             // ---------------------------------------
     }
     
-    void callback_three(PoseArrayConstPtr obj,PoseArrayConstPtr obj_secondary,PoseArrayConstPtr obj_third)
+    void callback_three(PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary,PoseWithCovarianceArrayStampedConstPtr obj_third)
     {
 
         if (PRINT_OUT == 1)
@@ -394,18 +411,18 @@ public:
 
         std::vector<float> all_x,all_y,all_z,all_cov;
         std::priority_queue<float> all_radius;
-        for (Pose point : obj->poses)
+        for (PoseWithCovarianceIdentified point : obj->poses)
         {
-            all_x.push_back(point.position.x);
-            all_y.push_back(point.position.y);
-            all_z.push_back(point.position.z);
-            all_cov.push_back(point.orientation.w);
+            all_x.push_back(point.pose.position.x);
+            all_y.push_back(point.pose.position.y);
+            all_z.push_back(point.pose.position.z);
+            all_cov.push_back(point.pose.orientation.w);
 
             
             geometry_msgs::Point p;
-            p.x = point.position.x;
-            p.y = point.position.y;
-            p.z = point.position.z;
+            p.x = point.pose.position.x;
+            p.y = point.pose.position.y;
+            p.z = point.pose.position.z;
 
             marker.points.push_back(p);
 
@@ -413,32 +430,32 @@ public:
 
 
         }
-        for (Pose point : obj_secondary->poses)
+        for (PoseWithCovarianceIdentified point : obj_secondary->poses)
         {
-            all_x.push_back(point.position.x);
-            all_y.push_back(point.position.y);
-            all_z.push_back(point.position.z);
-            all_cov.push_back(point.orientation.w);
+            all_x.push_back(point.pose.position.x);
+            all_y.push_back(point.pose.position.y);
+            all_z.push_back(point.pose.position.z);
+            all_cov.push_back(point.pose.orientation.w);
             
             geometry_msgs::Point p;
-            p.x = point.position.x;
-            p.y = point.position.y;
-            p.z = point.position.z;
+            p.x = point.pose.position.x;
+            p.y = point.pose.position.y;
+            p.z = point.pose.position.z;
 
             marker.points.push_back(p);
             cov_marker = Visualiser::drawCovariance(cov_marker,point);
        }
-        for (Pose point : obj_third->poses)
+        for (PoseWithCovarianceIdentified point : obj_third->poses)
         {
-            all_x.push_back(point.position.x);
-            all_y.push_back(point.position.y);
-            all_z.push_back(point.position.z);
-            all_cov.push_back(point.orientation.w);
+            all_x.push_back(point.pose.position.x);
+            all_y.push_back(point.pose.position.y);
+            all_z.push_back(point.pose.position.z);
+            all_cov.push_back(point.pose.orientation.w);
 
             geometry_msgs::Point p;
-            p.x = point.position.x;
-            p.y = point.position.y;
-            p.z = point.position.z;
+            p.x = point.pose.position.x;
+            p.y = point.pose.position.y;
+            p.z = point.pose.position.z;
 
             marker.points.push_back(p);
             
@@ -471,14 +488,35 @@ public:
         
         cov_matrix = KF.errorCovPost;
 
-        Pose point;
-        point.position.x = x_avg; 
-        point.position.y = y_avg; 
-        point.position.z = z_avg;
+        // Calculation of eigen values
+        cv::PCA pt_pca(cov_matrix, cv::Mat(), cv::PCA::DATA_AS_ROW, 0);
 
-        point.orientation.x = cov_matrix.at<float>(0,0); 
-        point.orientation.y = cov_matrix.at<float>(1,1); 
-        point.orientation.z = cov_matrix.at<float>(2,2); 
+        //Eigen values and vectors
+        cv::Mat pt_eig_vals = pt_pca.eigenvalues;
+        cv::Mat pt_eig_vectors = pt_pca.eigenvectors;
+
+
+        l1 = pt_eig_vals.at<float>(0,0);
+        l2 = pt_eig_vals.at<float>(1,0);
+        l3 = pt_eig_vals.at<float>(2,0);
+
+        // double scale95 = sqrt(5.991);
+        R1 = SCALE95 * sqrt(l1);
+        R2 = SCALE95 * sqrt(l2);
+        R3 = SCALE95 * sqrt(l3);
+
+        PoseWithCovarianceIdentified point;
+
+        point.pose.position.x = x_avg; 
+        point.pose.position.y = y_avg; 
+        point.pose.position.z = z_avg;
+
+
+        boost::array<double, 36> cov_parameters{   pt_eig_vectors.at<float>(0,0),pt_eig_vectors.at<float>(1,0),pt_eig_vectors.at<float>(2,0),\
+                                        pt_eig_vectors.at<float>(0,1),pt_eig_vectors.at<float>(1,1),pt_eig_vectors.at<float>(2,1),\
+                                        pt_eig_vectors.at<float>(0,2),pt_eig_vectors.at<float>(1,2),pt_eig_vectors.at<float>(2,2),\
+                                        R1,R2,R3};
+        point.covariance = cov_parameters;
 
         cov_marker_center = Visualiser::drawCovariance(cov_marker_center,point);
         
