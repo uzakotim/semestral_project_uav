@@ -13,6 +13,8 @@
 #include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <mrs_msgs/EstimatedState.h>
+#include <mrs_msgs/PoseWithCovarianceArrayStamped.h>
+#include <mrs_msgs/PoseWithCovarianceIdentified.h>
 #include <nav_msgs/Odometry.h>
 
 // include opencv2
@@ -133,7 +135,7 @@ public:
         points_pub_topic += "/points/";
 
         image_pub          = nh.advertise<Image>(image_pub_topic, 1);
-        points_pub         = nh.advertise<PoseArray>(points_pub_topic, 1);
+        points_pub         = nh.advertise<PoseWithCovarianceArrayStamped>(points_pub_topic, 1);
 
 
         //subscribers
@@ -346,7 +348,7 @@ public:
         cv::Mat cv_image     = ReturnCVMatImageFromMsg     (msg);
         cv::Mat depth_image  = ReturnCVMatImageFromDepthMsg(depth_msg);
 
-        std::vector<Pose> points_array {};
+        std::vector<PoseWithCovarianceIdentified> points_array {};
         // -->> Operations on image ----
         cv::cvtColor(cv_image, cv_image, cv::COLOR_BGR2RGB);
         
@@ -403,10 +405,15 @@ public:
                 
 
                     // Calculation of eigen values
-                    cv::PCA pt_pca(cov_matrix, cv::Mat(), CV_PCA_DATA_AS_ROW, 0);
+                    cv::PCA pt_pca(cov_matrix, cv::Mat(), cv::PCA::DATA_AS_ROW, 0);
 
-                    //Eigen values
+                    //Eigen values and vectors
                     cv::Mat pt_eig_vals = pt_pca.eigenvalues;
+                    cv::Mat pt_eig_vectors = pt_pca.eigenvectors;
+
+                    
+
+
 
                     l1 = pt_eig_vals.at<float>(0,0);
                     l2 = pt_eig_vals.at<float>(1,0);
@@ -417,20 +424,28 @@ public:
                     R2 = SCALE95 * sqrt(l2);
                     R3 = SCALE95 * sqrt(l3);
 
+                    ROS_INFO_STREAM("Eigen vector 0: "<<pt_eig_vectors.at<float>(0,0) << " "<< pt_eig_vectors.at<float>(1,0)<<" "<<pt_eig_vectors.at<float>(2,0));
+                    ROS_INFO_STREAM("Eigen value  0: "<<R1);
+                    ROS_INFO_STREAM("Eigen vector 1: "<<pt_eig_vectors.at<float>(0,1) << " "<< pt_eig_vectors.at<float>(1,1)<<" "<<pt_eig_vectors.at<float>(2,1));
+                    ROS_INFO_STREAM("Eigen value  1: "<<R2);
+                    ROS_INFO_STREAM("Eigen vector 2: "<<pt_eig_vectors.at<float>(0,2) << " "<< pt_eig_vectors.at<float>(1,2)<<" "<<pt_eig_vectors.at<float>(2,2));
+                    ROS_INFO_STREAM("Eigen value  2: "<<R3);
 
                     // Adding point to array
-                    Pose point;
-                    point.position.x = object_world.at<float>(0);
-                    point.position.y = object_world.at<float>(1);
-                    point.position.z = object_world.at<float>(2);
-                    
-                    point.orientation.x = R1;
-                    point.orientation.y = R2;
-                    point.orientation.z = R3;
+                    PoseWithCovarianceIdentified point;
+                    point.pose.position.x = object_world.at<float>(0);
+                    point.pose.position.y = object_world.at<float>(1);
+                    point.pose.position.z = object_world.at<float>(2);
+
+                    boost::array<double, 36> cov_parameters{   pt_eig_vectors.at<float>(0,0),pt_eig_vectors.at<float>(1,0),pt_eig_vectors.at<float>(2,0),\
+                                        pt_eig_vectors.at<float>(0,1),pt_eig_vectors.at<float>(1,1),pt_eig_vectors.at<float>(2,1),\
+                                        pt_eig_vectors.at<float>(0,2),pt_eig_vectors.at<float>(1,2),pt_eig_vectors.at<float>(2,2),\
+                                        R1,R2,R3};
+                    point.covariance = cov_parameters;
                     
                     if (PRINT_OUT == 1)
                         ROS_INFO_STREAM(R1<<" "<<R2<<" "<<R3);
-                    point.orientation.w = cv::determinant(cov_matrix)*10e-6;
+                    point.pose.orientation.w = cv::determinant(cov_matrix)*10e-6;
                     points_array.push_back(point);
                 }
         }
@@ -442,7 +457,7 @@ public:
         msg_output->header.stamp = ros::Time::now();
         image_pub.publish(msg_output);
         // ---------------------MSG-----------------------------------------------
-        geometry_msgs::PoseArray msg_points;
+        PoseWithCovarianceArrayStamped msg_points;
         msg_points.poses = points_array;
         msg_points.header.frame_id = std::to_string(counter);
         msg_points.header.stamp = ros::Time::now();

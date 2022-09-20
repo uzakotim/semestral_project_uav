@@ -11,6 +11,8 @@
 // #include <message_filters/sync_policies/exact_time.h>
 #include <mrs_msgs/ReferenceStampedSrv.h>
 #include <mrs_msgs/EstimatedState.h>
+#include <mrs_msgs/PoseWithCovarianceArrayStamped.h>
+#include <mrs_msgs/PoseWithCovarianceIdentified.h>
 
 #include <nav_msgs/Odometry.h>
 #include <numeric>
@@ -68,8 +70,8 @@ public:
 // ---------------------PUB and SUB---------------------------------
     ros::Publisher goal_pub;
 
-    message_filters::Subscriber<PoseArray> obj_sub;
-    message_filters::Subscriber<PoseArray> obj_secondary_sub;
+    message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_sub;
+    message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_secondary_sub;
 
     message_filters::Subscriber<Odometry> pose_sub;
     message_filters::Subscriber<EstimatedState> yaw_sub;
@@ -176,7 +178,7 @@ public:
 
     cv::Point3f prevState;
     //-----------------------------------------------------------------------------------------------------------------
-    typedef sync_policies::ApproximateTime<PoseArray,PoseArray,Odometry,EstimatedState> MySyncPolicy;
+    typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped,PoseWithCovarianceArrayStamped,Odometry,EstimatedState> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
 
@@ -500,7 +502,7 @@ public:
         return std::accumulate(v.begin(), v.end(), 0.0) / v.size();
     }
     
-    void callback_two(PoseArrayConstPtr obj,PoseArrayConstPtr obj_secondary, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
+    void callback_two(PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
     {
         if (PRINT_OUT == 1)
             ROS_INFO_STREAM("Synchronized");
@@ -528,19 +530,19 @@ public:
 
         std::vector<double> all_x,all_y,all_z,all_cov;
         std::priority_queue<double> all_radius;
-        for (Pose point : obj->poses)
+        for (PoseWithCovarianceIdentified point : obj->poses)
         {
-            all_x.push_back(point.position.x);
-            all_y.push_back(point.position.y);
-            all_z.push_back(point.position.z);
-            all_cov.push_back(point.orientation.w);
+            all_x.push_back(point.pose.position.x);
+            all_y.push_back(point.pose.position.y);
+            all_z.push_back(point.pose.position.z);
+            all_cov.push_back(point.pose.orientation.w);
         }
-        for (Pose point : obj_secondary->poses)
+        for (PoseWithCovarianceIdentified point : obj_secondary->poses)
         {
-            all_x.push_back(point.position.x);
-            all_y.push_back(point.position.y);
-            all_z.push_back(point.position.z);
-            all_cov.push_back(point.orientation.w);
+            all_x.push_back(point.pose.position.x);
+            all_y.push_back(point.pose.position.y);
+            all_z.push_back(point.pose.position.z);
+            all_cov.push_back(point.pose.orientation.w);
         }
 
         if (all_x.size()==0)
@@ -558,14 +560,14 @@ public:
             center3D.z = SensFuseTwo::getAverage(all_z);
             cov_avg = SensFuseTwo::getAverage(all_cov);
             
-            for (Pose point : obj->poses)
+            for (PoseWithCovarianceIdentified point : obj->poses)
             {
-                double value = std::sqrt(std::pow(point.position.x-center3D.x,2) + std::pow(point.position.y-center3D.y,2));
+                double value = std::sqrt(std::pow(point.pose.position.x-center3D.x,2) + std::pow(point.pose.position.y-center3D.y,2));
                 all_radius.push(value);
             }
-            for (Pose point : obj_secondary->poses)
+            for (PoseWithCovarianceIdentified point : obj_secondary->poses)
             {
-                double value = std::sqrt(std::pow(point.position.x-center3D.x,2) + std::pow(point.position.y-center3D.y,2));
+                double value = std::sqrt(std::pow(point.pose.position.x-center3D.x,2) + std::pow(point.pose.position.y-center3D.y,2));
                 all_radius.push(value);
             }
             max_radius = all_radius.top();
