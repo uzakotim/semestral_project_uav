@@ -54,7 +54,7 @@
 // determines how fast drone optimises - the smaller the faster
 #define SEARCH_SIZE 8
 #define SEARCH_HEIGHT 3.0
-#define PRINT_OUT 0
+#define PRINT_OUT 1
 
 // -----------------------------------------------------------------
 using namespace geometry_msgs;
@@ -515,7 +515,7 @@ public:
     void callback_three(PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary,PoseWithCovarianceArrayStampedConstPtr obj_third, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
     {
         if (PRINT_OUT == 1)
-            ROS_INFO_STREAM("Synchronized");
+            ROS_INFO_STREAM("Synchronized: PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary,PoseWithCovarianceArrayStampedConstPtr obj_third, OdometryConstPtr pose,EstimatedStateConstPtr yaw ");
         cv::Point3f predictPt = PredictUsingKalmanFilter();
         //------------MEASUREMENTS------------------------    
         pose_x = (float)(pose->pose.pose.position.x);
