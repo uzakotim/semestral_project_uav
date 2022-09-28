@@ -44,6 +44,14 @@ using namespace sensor_msgs;
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
 
+#define COLOR 4
+// 1 - orange
+// 2 - yellow
+// 3 - green
+// 4 - blue
+// 5 - purple
+// 6 - black
+
 #define PERFORMANCE
 
 #define RATE 1000
@@ -78,13 +86,49 @@ private:
     std::string image_pub_topic       = "";
 
     // detection parameters
-    cv::Scalar                  color_min = cv::Scalar(78,158,124);     //BLUE
-    cv::Scalar                  color_max = cv::Scalar(138,255,255);    //BLUE
 
-    cv::Scalar                  color_one_min = cv::Scalar(0,70,50);    //RED
-    cv::Scalar                  color_one_max = cv::Scalar(10,255,255); //RED
-    cv::Scalar                  color_two_min = cv::Scalar(170,70,50);  //RED
-    cv::Scalar                  color_two_max = cv::Scalar(180,255,255);//RED
+    cv::Scalar                  color_one_min = cv::Scalar(0,70,50);        //RED
+    cv::Scalar                  color_one_max = cv::Scalar(10,255,255);     //RED
+
+    cv::Scalar                  color_two_min = cv::Scalar(170,70,50);      //RED
+    cv::Scalar                  color_two_max = cv::Scalar(180,255,255);    //RED
+    
+    if (COLOR == 1)
+    {
+        cv::Scalar                  color_min = cv::Scalar(15,70,50);       //ORANGE
+        cv::Scalar                  color_max = cv::Scalar(30,255,255);     //ORANGE
+    }
+    if (COLOR == 2)
+    {
+        cv::Scalar                  color_min = cv::Scalar(25,70,50);       //YELLOW
+        cv::Scalar                  color_max = cv::Scalar(35,255,255);     //YELLOW
+    }
+    if (COLOR == 3)
+    {
+        cv::Scalar                  color_min = cv::Scalar(35,70,124);      //GREEN
+        cv::Scalar                  color_max = cv::Scalar(75,255,255);     //GREEN
+    }
+    if (COLOR == 4)
+    {
+        cv::Scalar                  color_min = cv::Scalar(78,158,124);     //BLUE
+        cv::Scalar                  color_max = cv::Scalar(140,255,255);    //BLUE
+    }
+    if (COLOR == 5)
+    {
+        cv::Scalar                  color_min = cv::Scalar(140,70,50);      //PURPLE
+        cv::Scalar                  color_max = cv::Scalar(170,255,255);    //PURPLE
+    }
+    if (COLOR == 6)
+    {
+        cv::Scalar                  color_min = cv::Scalar(0,0,0);          //BLACK
+        cv::Scalar                  color_max = cv::Scalar(180,255,30);     //BLACK
+    }
+
+
+
+
+
+   
     
     cv::Scalar                  detection_color = cv::Scalar(255,100,0);
 
