@@ -403,7 +403,7 @@ public:
                     object_coord    = (cv::Mat_<float>(3,1)<< (float)statePt.x, (float)statePt.y, (float)statePt.z);
                     object_world = ObjectCoordinateToWorld(object_coord,yaw_value,state,offset);
                     if (PRINT_OUT == 1)
-                        ROS_INFO_STREAM("[Detected object]: "<< i << "x: "<<object_world.at<float>(0)<<"y: "<<object_world.at<float>(1)<<"z: "<<object_world.at<float>(2));
+                        ROS_INFO_STREAM("[Detected object]: "<< i << " x: "<<object_world.at<float>(0)<<" y: "<<object_world.at<float>(1)<<" z: "<<object_world.at<float>(2));
                     // Calculation of eigen values
                     cv::PCA pt_pca(cov_matrix, cv::Mat(), cv::PCA::DATA_AS_ROW, 0);
 
@@ -479,6 +479,7 @@ int main(int argc, char** argv)
     std::string node_name = "";
     node_name += argv[1];
     node_name += "_blob_detector_objects";
+    ROS_INFO_STREAM(node_name);
 
     ros::init(argc, argv, node_name);
     BlobDetector bd(argv[1]);

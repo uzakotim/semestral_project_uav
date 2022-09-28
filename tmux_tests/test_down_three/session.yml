@@ -87,7 +87,7 @@ windows:
       panes:
         # - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main 0.0 -4.0 4.0 $UAV_NAME 1
         - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
-        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME1 $UAV_NAME2 $UAV_NAME3 1.57 5.0
+        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME1 $UAV_NAME2 $UAV_NAME3 1.57 3.0
         # 0 - flying around OFF; 1 - flying around ON;
 
   - uav2:
@@ -95,10 +95,15 @@ windows:
       panes:
         # - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main -4.0 4.0 4.0 $UAV_NAME 1
         - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
-        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME2 $UAV_NAME1 $UAV_NAME3 3.93 5.0
+        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME2 $UAV_NAME1 $UAV_NAME3 3.93 3.0
   - uav3:
       layout: tiled
       panes:
         # - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun red_drone_controller red_drone_controller_main 4.0 4.0 4.0 $UAV_NAME 1
         - export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
-        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME3 $UAV_NAME2 $UAV_NAME1 5.50 5.0
+        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME3 $UAV_NAME2 $UAV_NAME1 5.50 3.0
+
+  - gz_rate:
+      layout: tiled
+      panes:
+        - waitForOdometry; sleep 5; gz physics -u 125
