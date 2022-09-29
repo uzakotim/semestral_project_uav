@@ -93,41 +93,8 @@ private:
     cv::Scalar                  color_two_min = cv::Scalar(170,70,50);      //RED
     cv::Scalar                  color_two_max = cv::Scalar(180,255,255);    //RED
     
-    if (COLOR == 1)
-    {
-        cv::Scalar                  color_min = cv::Scalar(15,70,50);       //ORANGE
-        cv::Scalar                  color_max = cv::Scalar(30,255,255);     //ORANGE
-    }
-    if (COLOR == 2)
-    {
-        cv::Scalar                  color_min = cv::Scalar(25,70,50);       //YELLOW
-        cv::Scalar                  color_max = cv::Scalar(35,255,255);     //YELLOW
-    }
-    if (COLOR == 3)
-    {
-        cv::Scalar                  color_min = cv::Scalar(35,70,124);      //GREEN
-        cv::Scalar                  color_max = cv::Scalar(75,255,255);     //GREEN
-    }
-    if (COLOR == 4)
-    {
-        cv::Scalar                  color_min = cv::Scalar(78,158,124);     //BLUE
-        cv::Scalar                  color_max = cv::Scalar(140,255,255);    //BLUE
-    }
-    if (COLOR == 5)
-    {
-        cv::Scalar                  color_min = cv::Scalar(140,70,50);      //PURPLE
-        cv::Scalar                  color_max = cv::Scalar(170,255,255);    //PURPLE
-    }
-    if (COLOR == 6)
-    {
-        cv::Scalar                  color_min = cv::Scalar(0,0,0);          //BLACK
-        cv::Scalar                  color_max = cv::Scalar(180,255,30);     //BLACK
-    }
-
-
-
-
-
+    cv::Scalar                  color_min = cv::Scalar(78,158,124);     //BLUE
+    cv::Scalar                  color_max = cv::Scalar(140,255,255);    //BLUE
    
     
     cv::Scalar                  detection_color = cv::Scalar(255,100,0);
@@ -228,6 +195,33 @@ public:
         setIdentity(KF.processNoiseCov,     cv::Scalar::all(10)); 
         setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10));
         setIdentity(KF.errorCovPost,        cv::Scalar::all(.1));
+
+
+        switch (COLOR)
+        {
+        case 1:
+            color_min = cv::Scalar(15,70,50);       //ORANGE
+            color_max = cv::Scalar(30,255,255);     //ORANGE
+        case 2:
+            color_min = cv::Scalar(25,70,50);       //YELLOW
+            color_max = cv::Scalar(35,255,255);     //YELLOW
+        case 3:
+            color_min = cv::Scalar(35,70,124);      //GREEN
+            color_max = cv::Scalar(75,255,255);     //GREEN
+        case 4:
+            color_min = cv::Scalar(78,158,124);     //BLUE
+            color_max = cv::Scalar(140,255,255);    //BLUE
+        case 5:
+            color_min = cv::Scalar(140,70,50);      //PURPLE
+            color_max = cv::Scalar(170,255,255);    //PURPLE
+        case 6:
+            color_min = cv::Scalar(0,0,0);          //BLACK
+            color_max = cv::Scalar(180,255,30);     //BLACK
+        default:
+            color_min = cv::Scalar(78,158,124);     //BLUE
+            color_max = cv::Scalar(140,255,255);    //BLUE
+        }
+
         // ---<< Kalman Filter Parameters ----
         ROS_INFO("All functions initialized");
     }
@@ -438,8 +432,8 @@ public:
                     // Drawing Point
                     // uncomment for drawing the radius around corner
 
-                    // float radius = FindRadius(contours, i);
-                    // cv::circle  (drawing, statePt2D, int(radius), detection_color, 2 );
+                    float radius = FindRadius(contours, i);
+                    cv::circle  (drawing, statePt2D, int(radius), detection_color, 2 );
                     
 
 

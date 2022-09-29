@@ -254,7 +254,7 @@ public:
                                                         0,0,0,0,0,1);
 
 
-        ROS_INFO("[Three Drones Down] All functions initialized");
+        ROS_INFO("[Two Drones Down] All functions initialized");
     }
 
     cv::Mat convertToCov(const OdometryConstPtr obj)
