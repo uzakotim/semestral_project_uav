@@ -1,7 +1,7 @@
 name: simulation
 root: ./
 on_project_start: nums=$(shuf -i 1-30 -n 30 | tr '\n' " "); echo "UAV_NUMBERS=($nums)" > /tmp/random_uav_numbers
-pre_window: source /tmp/random_uav_numbers; export UAV_NAME="uav${UAV_NUMBERS[1]}"; export RUN_TYPE=simulation; export UAV_TYPE=t650; export UAV_TYPE_LEADER=f450; export WORLD_NAME=simulation; export SENSORS="garmin_down"
+pre_window: source /tmp/random_uav_numbers; export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export RUN_TYPE=simulation; export UAV_TYPE=t650; export UAV_TYPE_LEADER=f450; export WORLD_NAME=simulation; export SENSORS="garmin_down"
 startup_window: status
 windows:
   - roscore:
@@ -20,8 +20,8 @@ windows:
   - spawn:
       layout: tiled
       panes:
-        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[1]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos 10 90 19 0.0"
-        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[2]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos 15 90 19 0.0"
+        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[1]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos 25 -44 5 0.0"
+        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[2]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos 25 -42 5 0.0"
   - control:
       layout: tiled
       panes:
@@ -49,18 +49,27 @@ windows:
       layout: tiled
       panes:
         - export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
-        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}" waitForOdometry; rosrun sensor_fusion_two_down sf_two_down $UAV_NAME1 $UAV_NAME2 $UAV_NAME3 0.0 4.0
+        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun sensor_fusion_two_down sf_two_down $UAV_NAME1 $UAV_NAME2 0.0 4.0;  
   - uav2:
       layout: tiled
       panes:
-        - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
-        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun sensor_fusion_two_down sf_two_down $UAV_NAME2 $UAV_NAME1 $UAV_NAME3 3.1415 4.0 #3.93
-
+        - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME 
+        - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun sensor_fusion_two_down sf_two_down $UAV_NAME2 $UAV_NAME1 3.1415 4.0;
   - visualiser:
       layout: tiled
       panes:
         - export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun visualiser_two visualiser_two $UAV_NAME1 $UAV_NAME2
 
+  - goto:
+      layout: tiled
+      synchronize: after
+      panes:
+        - 'export UAV_NAME="uav${UAV_NUMBERS[1]}";
+          history -s rosservice call /$UAV_NAME/control_manager/goto \"goal: \[5.0, 0.0, 3.0, 0.0\]\";
+          history -s rosservice call /$UAV_NAME/control_manager/goto \"goal: \[-5.0, 0.0, 3.0, 0.0\]\"'
+        - 'export UAV_NAME="uav${UAV_NUMBERS[2]}";
+          history -s rosservice call /$UAV_NAME/control_manager/goto \"goal: \[-5.0, 0.0, 3.0, 0.0\]\";
+          history -s rosservice call /$UAV_NAME/control_manager/goto \"goal: \[5.0, 0.0, 3.0, 0.0\]\"'
   - gz_rate:
       layout: tiled
       panes:

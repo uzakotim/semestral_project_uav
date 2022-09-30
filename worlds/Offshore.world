@@ -65,261 +65,382 @@
     </light>
 
 	 <!--}-->
-    <model name="my_model1">
-	    <pose>2 -3 2 0 0 0</pose>
-		<static>false</static>
+   <model name="my_model1">
+    <pose>3 1 0 0 0 0</pose>
+    <static>true</static>
+    <plugin name="hydrodynamics" filename="libHydrodynamicsPlugin.so">
+      <wave_model>ocean</wave_model>
 
-		<!--<plugin name="hydrodynamics" filename="libHydrodynamicsPlugin.so">
-			<wave_model>ocean</wave_model>
+      <damping_on>true</damping_on>
+      <viscous_drag_on>true</viscous_drag_on>
+      <pressure_drag_on>true</pressure_drag_on>
 
-			<damping_on>true</damping_on>
-			<viscous_drag_on>true</viscous_drag_on>
-			<pressure_drag_on>true</pressure_drag_on>
+      <markers>
+        <update_rate>30</update_rate>
+        <water_patch>false</water_patch>
+        <waterline>false</waterline>
+        <underwater_surface>false</underwater_surface>
+      </markers>
+    </plugin>
+    <link name="link">
+      <inertial>
+        <mass>1.0</mass>
+        <inertia> <!-- inertias are tricky to compute -->
+          <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
+          <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
+          <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
+          <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
+          <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
+          <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
+          <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
+        </inertia>
+      </inertial>
+      <collision name="collision">
+  <geometry>
+    <box>
+      <size>0.5 0.5 0.5</size>
+    </box>
+  </geometry>
+      </collision>
+      <visual name="visual">
+  <geometry>
+    <box>
+      <size>0.5 0.5 0.5</size>
+    </box>
+  </geometry>
+  <material>
+      <ambient>0 0 1 1</ambient>
+      <diffuse>0 0 1 1</diffuse>
+      <specular>0.1 0.1 0.1 1</specular>
+      <emissive>0 0 0 0</emissive>
+  </material>
+      </visual>
+    </link>
+   </model>
 
-			<markers>
-				<update_rate>30</update_rate>
-				<water_patch>false</water_patch>
-				<waterline>false</waterline>
-				<underwater_surface>false</underwater_surface>
-			</markers>
-		</plugin>
-		-->
-
-	    <link name="link">
-	    <inertial>
-		<mass>1.0</mass>
-		<inertia> <!-- inertias are tricky to compute -->
-		  <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
-		  <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
-		  <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
-		  <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
-		  <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
-		  <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
-		  <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
-		</inertia>
-	      </inertial>
-	      <collision name="collision">
-		<geometry>
-		  <box>
-		    <size>0.5 0.5 0.5</size>
-		  </box>
-		</geometry>
-	      </collision>
-	      <visual name="visual">
-		<geometry>
-		  <box>
-		    <size>0.5 0.5 0.5</size>
-		  </box>
-		</geometry>
-		<material>
-		    <ambient>1 0 0 1</ambient>
-		    <diffuse>1 0 0 1</diffuse>
-		    <specular>0.1 0.1 0.1 1</specular>
-		    <emissive>0 0 0 0</emissive>
-		</material>
-	      </visual>
-	    </link>
-    </model>
 
     <!--}-->
     <model name="my_model2">
-	    <pose>3 1 0 0 0 0</pose>
-	    <static>true</static>
-	    <link name="link">
-	      <inertial>
-		<mass>1.0</mass>
-		<inertia> <!-- inertias are tricky to compute -->
-		  <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
-		  <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
-		  <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
-		  <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
-		  <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
-		  <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
-		  <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
-		</inertia>
-	      </inertial>
-	      <collision name="collision">
-		<geometry>
-		  <box>
-		    <size>0.5 0.5 0.5</size>
-		  </box>
-		</geometry>
-	      </collision>
-	      <visual name="visual">
-		<geometry>
-		  <box>
-		    <size>0.5 0.5 0.5</size>
-		  </box>
-		</geometry>
-		<material>
-		    <ambient>0 0 1 1</ambient>
-		    <diffuse>0 0 1 1</diffuse>
-		    <specular>0.1 0.1 0.1 1</specular>
-		    <emissive>0 0 0 0</emissive>
-		</material>
-	      </visual>
-	    </link>
+     <pose>1 1 0 0 0 0</pose>
+     <static>true</static>
+     <plugin name="hydrodynamics" filename="libHydrodynamicsPlugin.so">
+       <wave_model>ocean</wave_model>
+
+       <damping_on>true</damping_on>
+       <viscous_drag_on>true</viscous_drag_on>
+       <pressure_drag_on>true</pressure_drag_on>
+
+       <markers>
+         <update_rate>30</update_rate>
+         <water_patch>false</water_patch>
+         <waterline>false</waterline>
+         <underwater_surface>false</underwater_surface>
+       </markers>
+     </plugin>
+     <link name="link">
+       <inertial>
+         <mass>1.0</mass>
+         <inertia> <!-- inertias are tricky to compute -->
+           <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
+           <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
+           <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
+           <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
+           <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
+           <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
+           <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
+         </inertia>
+       </inertial>
+       <collision name="collision">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+       </collision>
+       <visual name="visual">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+   <material>
+       <ambient>0 0 1 1</ambient>
+       <diffuse>0 0 1 1</diffuse>
+       <specular>0.1 0.1 0.1 1</specular>
+       <emissive>0 0 0 0</emissive>
+   </material>
+       </visual>
+     </link>
     </model>
 
     <!--}-->
     <model name="my_model3">
-	    <pose>-3 0 0 0 0 0</pose>
-	    <static>true</static>
-	    <link name="link">
-	      <inertial>
-		<mass>1.0</mass>
-		<inertia> <!-- inertias are tricky to compute -->
-		  <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
-		  <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
-		  <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
-		  <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
-		  <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
-		  <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
-		  <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
-		</inertia>
-	      </inertial>
-	      <collision name="collision">
-		<geometry>
-		  <box>
-		    <size>0.5 0.5 0.5</size>
-		  </box>
-		</geometry>
-	      </collision>
-	      <visual name="visual">
-		<geometry>
-		  <box>
-		    <size>0.5 0.5 0.5</size>
-		  </box>
-		</geometry>
-		<material>
-		    <ambient>0 0 1 1</ambient>
-		    <diffuse>0 0 1 1</diffuse>
-		    <specular>0.1 0.1 0.1 1</specular>
-		    <emissive>0 0 0 0</emissive>
-		</material>
-	      </visual>
-	    </link>
+     <pose>-3 0 0 0 0 0</pose>
+     <static>true</static>
+     <plugin name="hydrodynamics" filename="libHydrodynamicsPlugin.so">
+       <wave_model>ocean</wave_model>
+
+       <damping_on>true</damping_on>
+       <viscous_drag_on>true</viscous_drag_on>
+       <pressure_drag_on>true</pressure_drag_on>
+
+       <markers>
+         <update_rate>30</update_rate>
+         <water_patch>false</water_patch>
+         <waterline>false</waterline>
+         <underwater_surface>false</underwater_surface>
+       </markers>
+     </plugin>
+     <link name="link">
+       <inertial>
+         <mass>1.0</mass>
+         <inertia> <!-- inertias are tricky to compute -->
+           <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
+           <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
+           <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
+           <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
+           <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
+           <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
+           <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
+         </inertia>
+       </inertial>
+       <collision name="collision">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+       </collision>
+       <visual name="visual">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+   <material>
+       <ambient>0 0 1 1</ambient>
+       <diffuse>0 0 1 1</diffuse>
+       <specular>0.1 0.1 0.1 1</specular>
+       <emissive>0 0 0 0</emissive>
+   </material>
+       </visual>
+     </link>
     </model>
 
     <!--}-->
     <model name="my_model4">
-	    <pose>-3 -2 0 0 0 0</pose>
-	    <static>true</static>
-	    <link name="link">
-	      <inertial>
-		<mass>1.0</mass>
-		<inertia> <!-- inertias are tricky to compute -->
-		  <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
-		  <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
-		  <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
-		  <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
-		  <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
-		  <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
-		  <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
-		</inertia>
-	      </inertial>
-	      <collision name="collision">
-		<geometry>
-		  <box>
-		    <size>0.5 0.5 0.5</size>
-		  </box>
-		</geometry>
-	      </collision>
-	      <visual name="visual">
-		<geometry>
-		  <box>
-		    <size>0.5 0.5 0.5</size>
-		  </box>
-		</geometry>
-		<material>
-		    <ambient>0 0 1 1</ambient>
-		    <diffuse>0 0 1 1</diffuse>
-		    <specular>0.1 0.1 0.1 1</specular>
-		    <emissive>0 0 0 0</emissive>
-		</material>
-	      </visual>
-	    </link>
+     <pose>-3 -2 0 0 0 0</pose>
+     <static>true</static>
+     <plugin name="hydrodynamics" filename="libHydrodynamicsPlugin.so">
+       <wave_model>ocean</wave_model>
+
+       <damping_on>true</damping_on>
+       <viscous_drag_on>true</viscous_drag_on>
+       <pressure_drag_on>true</pressure_drag_on>
+
+       <markers>
+         <update_rate>30</update_rate>
+         <water_patch>false</water_patch>
+         <waterline>false</waterline>
+         <underwater_surface>false</underwater_surface>
+       </markers>
+     </plugin>
+     <link name="link">
+       <inertial>
+         <mass>1.0</mass>
+         <inertia> <!-- inertias are tricky to compute -->
+           <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
+           <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
+           <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
+           <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
+           <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
+           <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
+           <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
+         </inertia>
+       </inertial>
+       <collision name="collision">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+       </collision>
+       <visual name="visual">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+   <material>
+       <ambient>0 0 1 1</ambient>
+       <diffuse>0 0 1 1</diffuse>
+       <specular>0.1 0.1 0.1 1</specular>
+       <emissive>0 0 0 0</emissive>
+   </material>
+       </visual>
+     </link>
     </model>
 
-    <!--}-->
     <model name="my_model5">
-	    <pose>-1 -1 0 0 0 0</pose>
-	    <static>true</static>
-	    <link name="link">
-	      <inertial>
-		<mass>1.0</mass>
-		<inertia> <!-- inertias are tricky to compute -->
-		  <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
-		  <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
-		  <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
-		  <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
-		  <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
-		  <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
-		  <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
-		</inertia>
-	      </inertial>
-	      <collision name="collision">
-		<geometry>
-		  <box>
-		    <size>0.3 0.3 0.3</size>
-		  </box>
-		</geometry>
-	      </collision>
-	      <visual name="visual">
-		<geometry>
-		  <box>
-		    <size>0.7 0.2 0.5</size>
-		  </box>
-		</geometry>
-		<material>
-		    <ambient>0 0 1 1</ambient>
-		    <diffuse>0 0 1 1</diffuse>
-		    <specular>0.1 0.1 0.1 1</specular>
-		    <emissive>0 0 0 0</emissive>
-		</material>
-	      </visual>
-	    </link>
+     <pose>-1 -1 0 0 0 0</pose>
+     <static>true</static>
+     <plugin name="hydrodynamics" filename="libHydrodynamicsPlugin.so">
+       <wave_model>ocean</wave_model>
+
+       <damping_on>true</damping_on>
+       <viscous_drag_on>true</viscous_drag_on>
+       <pressure_drag_on>true</pressure_drag_on>
+
+       <markers>
+         <update_rate>30</update_rate>
+         <water_patch>false</water_patch>
+         <waterline>false</waterline>
+         <underwater_surface>false</underwater_surface>
+       </markers>
+     </plugin>
+     <link name="link">
+       <inertial>
+         <mass>1.0</mass>
+         <inertia> <!-- inertias are tricky to compute -->
+           <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
+           <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
+           <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
+           <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
+           <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
+           <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
+           <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
+         </inertia>
+       </inertial>
+       <collision name="collision">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+       </collision>
+       <visual name="visual">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+   <material>
+       <ambient>0 0 1 1</ambient>
+       <diffuse>0 0 1 1</diffuse>
+       <specular>0.1 0.1 0.1 1</specular>
+       <emissive>0 0 0 0</emissive>
+   </material>
+       </visual>
+     </link>
     </model>
 
     <!--}-->
     <model name="my_model6">
-	    <pose>1 2.5 0 0 0 0</pose>
-	    <static>true</static>
-	    <link name="link">
-	      <inertial>
-		<mass>1.0</mass>
-		<inertia> <!-- inertias are tricky to compute -->
-		  <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
-		  <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
-		  <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
-		  <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
-		  <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
-		  <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
-		  <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
-		</inertia>
-	      </inertial>
-	      <collision name="collision">
-		<geometry>
-		  <box>
-		    <size>0.4 0.4 0.4</size>
-		  </box>
-		</geometry>
-	      </collision>
-	      <visual name="visual">
-		<geometry>
-		  <box>
-		    <size>0.4 0.4 0.4</size>
-		  </box>
-		</geometry>
-		<material>
-		    <ambient>0 0 1 1</ambient>
-		    <diffuse>0 0 1 1</diffuse>
-		    <specular>0.1 0.1 0.1 1</specular>
-		    <emissive>0 0 0 0</emissive>
-		</material>
-	      </visual>
-	    </link>
+     <pose>1 2.5 0 0 0 0</pose>
+     <static>true</static>
+     <plugin name="hydrodynamics" filename="libHydrodynamicsPlugin.so">
+       <wave_model>ocean</wave_model>
+
+       <damping_on>true</damping_on>
+       <viscous_drag_on>true</viscous_drag_on>
+       <pressure_drag_on>true</pressure_drag_on>
+
+       <markers>
+         <update_rate>30</update_rate>
+         <water_patch>false</water_patch>
+         <waterline>false</waterline>
+         <underwater_surface>false</underwater_surface>
+       </markers>
+     </plugin>
+     <link name="link">
+       <inertial>
+         <mass>1.0</mass>
+         <inertia> <!-- inertias are tricky to compute -->
+           <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
+           <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
+           <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
+           <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
+           <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
+           <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
+           <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
+         </inertia>
+       </inertial>
+       <collision name="collision">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+       </collision>
+       <visual name="visual">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+   <material>
+       <ambient>0 0 1 1</ambient>
+       <diffuse>0 0 1 1</diffuse>
+       <specular>0.1 0.1 0.1 1</specular>
+       <emissive>0 0 0 0</emissive>
+   </material>
+       </visual>
+     </link>
     </model>
+
+    <model name="my_model7">
+     <pose>0 0 0 0 0 0</pose>
+     <static>true</static>
+     <plugin name="hydrodynamics" filename="libHydrodynamicsPlugin.so">
+       <wave_model>ocean</wave_model>
+
+       <damping_on>true</damping_on>
+       <viscous_drag_on>true</viscous_drag_on>
+       <pressure_drag_on>true</pressure_drag_on>
+
+       <markers>
+         <update_rate>30</update_rate>
+         <water_patch>false</water_patch>
+         <waterline>false</waterline>
+         <underwater_surface>false</underwater_surface>
+       </markers>
+     </plugin>
+     <link name="link">
+       <inertial>
+         <mass>1.0</mass>
+         <inertia> <!-- inertias are tricky to compute -->
+           <!-- http://gazebosim.org/tutorials?tut=inertia&cat=build_robot -->
+           <ixx>0.083</ixx>       <!-- for a box: ixx = 0.083 * mass * (y*y + z*z) -->
+           <ixy>0.0</ixy>         <!-- for a box: ixy = 0 -->
+           <ixz>0.0</ixz>         <!-- for a box: ixz = 0 -->
+           <iyy>0.083</iyy>       <!-- for a box: iyy = 0.083 * mass * (x*x + z*z) -->
+           <iyz>0.0</iyz>         <!-- for a box: iyz = 0 -->
+           <izz>0.083</izz>       <!-- for a box: izz = 0.083 * mass * (x*x + y*y) -->
+         </inertia>
+       </inertial>
+       <collision name="collision">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+       </collision>
+       <visual name="visual">
+   <geometry>
+     <box>
+       <size>0.5 0.5 0.5</size>
+     </box>
+   </geometry>
+   <material>
+       <ambient>0 0 1 1</ambient>
+       <diffuse>0 0 1 1</diffuse>
+       <specular>0.1 0.1 0.1 1</specular>
+       <emissive>0 0 0 0</emissive>
+   </material>
+       </visual>
+     </link>
+    </model>
+
     <!-- World models  -->
 
     <!-- Dunes {-->
