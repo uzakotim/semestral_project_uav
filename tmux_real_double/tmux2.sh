@@ -59,8 +59,8 @@ input=(
 '
   'roscore' 'roscore
 '
-  'perception' 'export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
-' 'motion optimisation' 'export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun sensor_fusion_two_down sf_two_down $UAV_NAME2 $UAV_NAME1 $UAV_NAME3 3.1415 3.0
+  'perception' 'waitForRos; export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
+' 'motion optimisation' 'waitForRos; export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun sensor_fusion_two_down sf_two_down $UAV_NAME2 $UAV_NAME1 $UAV_NAME3 3.1415 3.0
 '
 )
 

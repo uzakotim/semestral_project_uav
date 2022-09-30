@@ -241,7 +241,7 @@ public:
         
         measurement.setTo(cv::Scalar(0));
         setIdentity(KF.measurementMatrix);
-        setIdentity(KF.processNoiseCov,     cv::Scalar::all(10)); //Q
+        setIdentity(KF.processNoiseCov,     cv::Scalar::all(1));  //Q
         setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10)); //R
         setIdentity(KF.errorCovPost,        cv::Scalar::all(.1));
 
@@ -515,7 +515,7 @@ public:
     void callback_three(PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary,PoseWithCovarianceArrayStampedConstPtr obj_third, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
     {
         if (PRINT_OUT == 1)
-            ROS_INFO_STREAM("Synchronized: PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary,PoseWithCovarianceArrayStampedConstPtr obj_third, OdometryConstPtr pose,EstimatedStateConstPtr yaw ");
+            ROS_INFO_STREAM("[SYNC]: PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary,PoseWithCovarianceArrayStampedConstPtr obj_third, OdometryConstPtr pose,EstimatedStateConstPtr yaw");
         cv::Point3f predictPt = PredictUsingKalmanFilter();
         //------------MEASUREMENTS------------------------    
         pose_x = (float)(pose->pose.pose.position.x);
@@ -524,7 +524,8 @@ public:
 
         state = (cv::Mat_<float>(4,1) << pose_x,pose_y,pose_z,yaw->state[0]);
         state_cov = SensFuseThree::convertToCov(pose);
-
+        if (PRINT_OUT == 1)
+            ROS_INFO_STREAM("[STATE]: "<<"\nx: "<<state.at<float>(0)<<"\ny: "<<state.at<float>(1)<<"\nz: "<<state.at<float>(2));
         if (count < 1)
         {
             init_x = pose_x;
@@ -605,8 +606,8 @@ public:
 
         if (PRINT_OUT == 1)
         {
-            ROS_INFO_STREAM("Centroid: x "<<center3D.x<<" y "<<center3D.y<<" z "<<center3D.z<<'\n');
-            ROS_INFO_STREAM("Radius: r "<<max_radius<<'\n');
+            ROS_INFO_STREAM("[CENTER]:\nx: "<<center3D.x<<"\ny: "<<center3D.y<<"\nz: "<<center3D.z);
+            ROS_INFO_STREAM("[RADIUS]: "<<max_radius);
         }
         
         goal_yaw = (float)(atan2(statePt.y-pose_y,statePt.x-pose_x));
@@ -620,13 +621,15 @@ public:
         
         if (PRINT_OUT == 1)
         {
-            ROS_INFO_STREAM("waypoint: w "<<w<<'\n');
+            ROS_INFO_STREAM("[WAYPOINT]:\nx: "<<w.at<float>(0)<<"\ny: "<<w.at<float>(1)<<"\nz: "<<w.at<float>(2)<<"\nyaw: "<<w.at<float>(3));
         }
         prevState.x = statePt.x;
         prevState.y = statePt.y;
         prevState.z = statePt.z;
 
         count++;
+        if (count>100)
+            count = 2;
     }
 };
 

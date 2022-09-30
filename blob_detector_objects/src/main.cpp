@@ -124,6 +124,7 @@ public:
     // auxilary parameters
     float yaw_value;
     u_int64_t counter{0};
+    u_int64_t count_blobs{0};
 
     float l1,l2,l3;
     float R1,R2,R3;
@@ -192,8 +193,8 @@ public:
         KF.statePre.at<float>(5) = 0;
 
         setIdentity(KF.measurementMatrix);
-        setIdentity(KF.processNoiseCov,     cv::Scalar::all(10)); 
-        setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10));
+        setIdentity(KF.processNoiseCov,     cv::Scalar::all(1));  //10
+        setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10)); //10
         setIdentity(KF.errorCovPost,        cv::Scalar::all(.1));
 
 
@@ -378,7 +379,7 @@ public:
     {
 
         if (PRINT_OUT == 1)
-            ROS_INFO("Synchronized: const ImageConstPtr& msg,const ImageConstPtr& depth_msg, const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw");
+            ROS_INFO("[SYNC]: const ImageConstPtr& msg,const ImageConstPtr& depth_msg, const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw");
 
         std_msgs::Header    msg_header  = depth_msg->header;
         std::string         frame_id    = msg_header.frame_id;
@@ -406,13 +407,16 @@ public:
         state           = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
         yaw_value       = (float)(yaw->state[0]);
         offset          = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
+        if (PRINT_OUT == 1)
+            ROS_INFO_STREAM("[STATE]: "<<"\nx: "<<state.at<float>(0)<<"\ny: "<<state.at<float>(1)<<"\nz: "<<state.at<float>(2));
         
+        count_blobs = 0;
         for (size_t i = 0;i<contours.size();i++)
         {
                 newArea = cv::contourArea(contours.at(i));
                 if(newArea > BLOB_SIZE)
                 {   
-
+                    count_blobs++;
                     PredictUsingKalmanFilter();
                     // Finding blob's center       
                     cv::Point2f center = FindCenter(contours, i);
@@ -441,7 +445,7 @@ public:
                     object_coord    = (cv::Mat_<float>(3,1)<< (float)statePt.x, (float)statePt.y, (float)statePt.z);
                     object_world = ObjectCoordinateToWorld(object_coord,yaw_value,state,offset);
                     if (PRINT_OUT == 1)
-                        ROS_INFO_STREAM("[Detected object]: "<< i << " x: "<<object_world.at<float>(0)<<" y: "<<object_world.at<float>(1)<<" z: "<<object_world.at<float>(2));
+                        ROS_INFO_STREAM("[DET OBJ]: ["<< count_blobs << "]\nx: "<<object_world.at<float>(0)<<"\ny: "<<object_world.at<float>(1)<<"\nz: "<<object_world.at<float>(2));
                     // Calculation of eigen values
                     cv::PCA pt_pca(cov_matrix, cv::Mat(), cv::PCA::DATA_AS_ROW, 0);
 
@@ -449,7 +453,6 @@ public:
                     cv::Mat pt_eig_vals = pt_pca.eigenvalues;
                     cv::Mat pt_eig_vectors = pt_pca.eigenvectors;
 
-                    
 
 
 
@@ -461,13 +464,6 @@ public:
                     R1 = SCALE95 * sqrt(l1);
                     R2 = SCALE95 * sqrt(l2);
                     R3 = SCALE95 * sqrt(l3);
-
-                    // ROS_INFO_STREAM("Eigen vector 0: "<<pt_eig_vectors.at<float>(0,0) << " "<< pt_eig_vectors.at<float>(1,0)<<" "<<pt_eig_vectors.at<float>(2,0));
-                    // ROS_INFO_STREAM("Eigen value  0: "<<R1);
-                    // ROS_INFO_STREAM("Eigen vector 1: "<<pt_eig_vectors.at<float>(0,1) << " "<< pt_eig_vectors.at<float>(1,1)<<" "<<pt_eig_vectors.at<float>(2,1));
-                    // ROS_INFO_STREAM("Eigen value  1: "<<R2);
-                    // ROS_INFO_STREAM("Eigen vector 2: "<<pt_eig_vectors.at<float>(0,2) << " "<< pt_eig_vectors.at<float>(1,2)<<" "<<pt_eig_vectors.at<float>(2,2));
-                    // ROS_INFO_STREAM("Eigen value  2: "<<R3);
 
                     // Adding point to array
                     PoseWithCovarianceIdentified point;
@@ -483,8 +479,7 @@ public:
                     
                     if (PRINT_OUT == 1)
                     {
-                        ROS_INFO_STREAM("[COVARAINCE ELLIPSOID EIGEN VALUES]");
-                        ROS_INFO_STREAM("["<<R1<<" "<<R2<<" "<<R3<<"]");
+                        ROS_INFO_STREAM("[COVELIPSRADII]: ["<< count_blobs << "]\n R1: " <<R1<<" R2: "<<R2<<" R3: "<<R3);
                     }
                     point.pose.orientation.w = cv::determinant(cov_matrix)*10e-6;
                     points_array.push_back(point);
@@ -505,7 +500,9 @@ public:
         points_pub.publish(msg_points);
 
         sleep(CONTROLLER_PERIOD);
-        counter++; 
+        counter++;
+        if (counter>100)
+            counter = 2; 
     }
 };
 

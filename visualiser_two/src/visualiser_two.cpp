@@ -35,7 +35,7 @@
 #define COV_RESOLUTION 2
 #define COV_DISTANCE_BETWEEN_POINTS 0.05
 // #define ELLIPSE_SCALE  0.0645 
-#define ELLIPSE_SCALE  0.03225/2
+#define ELLIPSE_SCALE  0.03225*4 ///2
 
 #define PRINT_OUT 0
 #define SCALE95 2.447652
@@ -172,8 +172,8 @@ public:
         
 
         setIdentity(KF.measurementMatrix);
-        setIdentity(KF.processNoiseCov,     cv::Scalar::all(10)); //Q
-        setIdentity(KF.measurementNoiseCov, cv::Scalar::all(100)); //R
+        setIdentity(KF.processNoiseCov,     cv::Scalar::all(1)); //Q
+        setIdentity(KF.measurementNoiseCov, cv::Scalar::all(10)); //R
         setIdentity(KF.errorCovPost,        cv::Scalar::all(.1));
 
 
@@ -466,6 +466,7 @@ public:
         center3D.x = x_avg;
         center3D.y = y_avg;
         center3D.z = z_avg;
+
         SetMeasurement(center3D);
 
         cv::Point3f statePt = UpdateKalmanFilter(measurement);
