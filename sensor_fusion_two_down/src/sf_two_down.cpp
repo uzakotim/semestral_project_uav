@@ -53,7 +53,7 @@
 // determines how fast drone optimises - the smaller the faster
 #define SEARCH_SIZE 8
 #define SEARCH_HEIGHT 3.0
-#define PRINT_OUT 0
+#define PRINT_OUT 1
 
 // -----------------------------------------------------------------
 using namespace geometry_msgs;
@@ -596,6 +596,10 @@ public:
         offset_y = max_radius*sin(offset_angle);
 
         w = SensFuseTwo::calculateFormation(state, master_pose, state_cov, cov_avg);
+        if (PRINT_OUT == 1)
+        {
+            ROS_INFO_STREAM("waypoint: w "<<w<<'\n');
+        }
         SensFuseTwo::moveDrone(w);
         
         prevState.x = statePt.x;
