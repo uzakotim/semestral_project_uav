@@ -36,7 +36,7 @@ using namespace nav_msgs;
 using namespace sensor_msgs;
 
 
-#define BLOB_SIZE 15
+#define BLOB_SIZE 50 //15
 // 25 - optimal
 // 10 - detects UAV motors
 #define CAMERA_OFFSET 0.2
@@ -51,6 +51,7 @@ using namespace sensor_msgs;
 // 4 - blue
 // 5 - purple
 // 6 - black
+// 7 - red
 
 #define PERFORMANCE
 
@@ -131,7 +132,7 @@ public:
     
     cv::Point2d statePt2D;
     cv::Point3d center3D;
-    cv::Mat offset,RotationMatrix;   
+    cv::Mat offset,RotationMatrix, image_threshold;   
     double newArea;
 
     BlobDetector(char* name)
@@ -207,7 +208,7 @@ public:
             color_min = cv::Scalar(25,70,50);       //YELLOW
             color_max = cv::Scalar(35,255,255);     //YELLOW
         case 3:
-            color_min = cv::Scalar(35,70,124);      //GREEN
+            color_min = cv::Scalar(35,158,124);      //GREEN
             color_max = cv::Scalar(75,255,255);     //GREEN
         case 4:
             color_min = cv::Scalar(78,158,124);     //BLUE
@@ -297,7 +298,7 @@ public:
         cv::Mat          mask1,mask2,total;
         cv::inRange     (image, BlobDetector::color_one_min, BlobDetector::color_one_max, mask1);
         cv::inRange     (image, BlobDetector::color_two_min, BlobDetector::color_two_max, mask2);
-
+        std::cout<<"HELLO"<<'\n';
         total = mask1 | mask2;
         
         return total;
@@ -392,11 +393,18 @@ public:
         cv::cvtColor(cv_image, cv_image, cv::COLOR_BGR2RGB);
         
         // 1) smoothing
-        //cv::Mat     blurred_image   = GaussianBlur(cv_image);
+        cv::Mat     blurred_image   = GaussianBlur(cv_image);
         // 2) conversion to hsv
         cv::Mat     image_HSV       = BGRtoHSV(cv_image);
         // 3) finding orange mask
-        cv::Mat     image_threshold = ReturnBlueMask(image_HSV);
+       
+        if (COLOR == 7){
+            image_threshold = ReturnRedMask(image_HSV);
+        }
+        else
+        {   
+            image_threshold = ReturnBlueMask(image_HSV);
+        }
         // 4) finding contours
         std::vector<std::vector<cv::Point>> contours = ReturnContours(image_threshold);
         
