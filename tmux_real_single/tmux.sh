@@ -61,7 +61,7 @@ input=(
 '
   'roscore' 'roscore
 '
-  'perception' 'waitForRos; export UAV_NAME="uav${UAV_NUMBERS[1]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
+  'perception' 'waitForRos; export UAV_NAME="$UAV_NAME"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
 '
 )
 
