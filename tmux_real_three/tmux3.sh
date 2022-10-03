@@ -41,6 +41,8 @@ input=(
 '
   'Nimbro' 'waitForRos; roslaunch mrs_uav_general nimbro.launch custom_config:=./custom_configs/nimbro.yaml custom_config_uav_names:=./custom_configs/uav_names.yaml
 '
+  'RealSense' 'waitForRos; roslaunch realsense uav_down.launch
+'
   'Sensors' 'waitForRos; roslaunch mrs_uav_general sensors.launch
 '
   'Status' 'waitForRos; roslaunch mrs_uav_status status.launch
@@ -59,9 +61,9 @@ input=(
 '
   'roscore' 'roscore 
 '
-  'perception' 'waitForRos; export UAV_NAME="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
+  'perception' 'waitForRos; export UAV_NAME="$UAV_NAME"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
 '
-  'motion_optimisation' 'waitForRos; export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; export UAV_NAME3="uav${UAV_NUMBERS[3]}"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME3 $UAV_NAME1 $UAV_NAME2 1.57 3.0
+  'motion_optimisation' 'waitForRos; export UAV_NAME1="uav3"; export UAV_NAME2="uav1"; export UAV_NAME3="uav2"; waitForOdometry; rosrun sensor_fusion_three_down sf_three_down $UAV_NAME3 $UAV_NAME1 $UAV_NAME2 1.57 3.0
 '
 )
 
