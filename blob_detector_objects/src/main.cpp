@@ -154,11 +154,11 @@ public:
         //subscribers
         image_sub_topic += "/";
         image_sub_topic += name;
-        image_sub_topic +="/rgbd_down/color/image_raw";
+        image_sub_topic +="/down_rgbd/color/image_raw";
 
         depth_sub_topic  += "/";
         depth_sub_topic  += name;
-        depth_sub_topic  += "/rgbd_down/aligned_depth_to_color/image_raw";
+        depth_sub_topic  += "/down_rgbd/aligned_depth_to_color/image_raw";
 
         pose_sub_topic += "/";
         pose_sub_topic += name;
