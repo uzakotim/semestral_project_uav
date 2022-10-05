@@ -1,5 +1,5 @@
 #!/bin/bash
-### BEGIN INIT INFO
+## BEGIN INIT INFO
 # Provides: tmux
 # Required-Start:    $local_fs $network dbus
 # Required-Stop:     $local_fs $network

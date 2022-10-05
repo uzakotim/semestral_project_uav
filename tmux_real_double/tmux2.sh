@@ -27,7 +27,7 @@ SESSION_NAME=mav
 
 # following commands will be executed first in each window
 # * do NOT put ; at the end
-pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=./world.yaml"
+pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME"
 
 # define commands
 # 'name' 'command'
@@ -39,7 +39,7 @@ input=(
 '
   'NodeChecker' 'waitForRos; roslaunch mrs_uav_general node_crash_checker.launch
 '
-  'Nimbro' 'waitForRos; roslaunch mrs_uav_general nimbro.launch custom_config:=./custom_configs/nimbro.yaml custom_config_uav_names:=./custom_configs/uav_names.yaml
+  'Nimbro' 'waitForRos; rosrun mrs_uav_general run_nimbro.py custom_configs/nimbro.yaml custom_configs/uav_names.yaml
 '
   'RealSense' 'waitForRos; roslaunch realsense uav_down.launch
 '
@@ -62,7 +62,7 @@ input=(
   'roscore' 'roscore
 '
   'perception' 'waitForRos; export UAV_NAME="$UAV_NAME"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
-' 'motion optimisation' 'waitForRos; export UAV_NAME1="uav3"; export UAV_NAME2="uav1"; waitForOdometry; rosrun sensor_fusion_two_down sf_two_down $UAV_NAME2 $UAV_NAME1 3.1415 3.0
+' 'motion optimisation' 'waitForRos; waitForOdometry; rosrun sensor_fusion_two_down sf_two_down uav1 uav3 3.1415 3.0
 '
 )
 

@@ -65,6 +65,10 @@ using namespace sensor_msgs;
 class SensFuseTwo
 {
 
+private:
+    typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped,PoseWithCovarianceArrayStamped,Odometry,EstimatedState> MySyncPolicy;
+    typedef Synchronizer<MySyncPolicy> Sync;
+    boost::shared_ptr<Sync> sync;
 public:
 
 // ---------------------PUB and SUB---------------------------------
@@ -178,10 +182,6 @@ public:
 
     cv::Point3f prevState;
     //-----------------------------------------------------------------------------------------------------------------
-    typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped,PoseWithCovarianceArrayStamped,Odometry,EstimatedState> MySyncPolicy;
-    typedef Synchronizer<MySyncPolicy> Sync;
-    boost::shared_ptr<Sync> sync;
-
 
     SensFuseTwo(ros::NodeHandle nh,const char* &name_main, const char* &name_secondary,const float &angle_parameter,const float &z_parameter)
     {   
@@ -438,7 +438,7 @@ public:
                 {
                     delta[i] = std::min(delta_prev[i]*n_pos,delta_max);
                     w_prev.at<float>(i) = w.at<float>(i);
-                    w.at<float>(i) = w.at<float>(i) - sign(grad_cur[i])*delta[i];
+                    w.at<float>(i) = w.at<float>(i) - SensFuseTwo::sign(grad_cur[i])*delta[i];
                     grad_prev[i] = grad_cur[i]; 
                 } else if ((grad_prev[i]*grad_cur[i])<0)
                 {
@@ -446,13 +446,13 @@ public:
                     if (cost_cur[i] > cost_prev[i])
                     {
                         w_prev.at<float>(i) = w.at<float>(i);
-                        w.at<float>(i) = w.at<float>(i)-sign(grad_prev[i])*delta_prev[i];
+                        w.at<float>(i) = w.at<float>(i)-SensFuseTwo::sign(grad_prev[i])*delta_prev[i];
                     }
                     grad_prev[i] = 0;
                 } else if ((grad_prev[i]*grad_cur[i])==0)
                 {
                     w_prev.at<float>(i) = w.at<float>(i);
-                    w.at<float>(i) = w.at<float>(i) - sign(grad_prev[i])*delta[i];
+                    w.at<float>(i) = w.at<float>(i) - SensFuseTwo::sign(grad_prev[i])*delta[i];
                     grad_prev[i] = grad_cur[i];
                 }
             }
