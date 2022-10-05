@@ -21,8 +21,8 @@ windows:
   - spawn:
       layout: tiled
       panes:
-        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[1]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos 0 -2 1 0.0"
-        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[2]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos -4 3 1 0.0"
+        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[1]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos -4 3 1 0.0"
+        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[2]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos 0 -2 1 0.0"
   - control:
       layout: tiled
       panes:

@@ -46,6 +46,7 @@
 #define CONTROL_GAIN_GOAL 300 //200
 #define CONTROL_GAIN_DETECTION 0.001 //200
 #define CONTROL_GAIN_STATE_ESTIMATION 0.001 //200
+#define CONTROL_GAIN_AVOIDANCE 0.2 //200
 #define CONTROL_GAIN_STATE 0.1  // 1
 #define CONTROL_GAIN_STATE_Z 0.01 // 100
 // influences how sharp are drone's motions - the lower the sharper
@@ -66,7 +67,7 @@ class SensFuseTwo
 public:
     ros::NodeHandle nh;
     // typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped,PoseWithCovarianceArrayStamped,Odometry,EstimatedState> MySyncPolicy;
-    typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped, PoseWithCovarianceArrayStamped, nav_msgs::Odometry, EstimatedState> MySyncPolicy;
+    typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped, PoseWithCovarianceArrayStamped, nav_msgs::Odometry, EstimatedState, nav_msgs::Odometry> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
 
@@ -76,6 +77,7 @@ public:
 
     message_filters::Subscriber<nav_msgs::Odometry> pose_sub;
     message_filters::Subscriber<EstimatedState> yaw_sub;
+    message_filters::Subscriber<nav_msgs::Odometry> sec_sub;
 
 
 // ---------------------PUB and SUB---------------------------------
@@ -89,6 +91,8 @@ public:
     std::string sub_pose_topic          = "";
     std::string sub_yaw_topic           = "";
 
+    std::string sub_sec_topic          = "";
+    
     std::string pub_pose_topic          = "";
     std::string pub_goal_topic          = "";
 
@@ -125,6 +129,11 @@ public:
     float pose_x {0.0};
     float pose_y {0.0};
     float pose_z {0.0};
+
+    float sec_x {0.0};
+    float sec_y {0.0};
+    float sec_z {0.0};
+
 
     float init_x {0.0};
     float init_y {0.0};
@@ -167,6 +176,7 @@ public:
     cv::Mat master_pose;
     
     cv::Mat state,state_cov,obj_cov;
+    cv::Mat state_sec,state_sec_cov;
 
     cv::Mat tracker_vector = (cv::Mat_<float>(4,1) << 0,0,0,0);
     
@@ -208,6 +218,12 @@ public:
         sub_pose_topic += name_main;
         sub_pose_topic += "/odometry/odom_main/";
 
+        sub_sec_topic += "/";
+        sub_sec_topic += name_secondary;
+        sub_sec_topic += "/odometry/odom_main/";
+
+
+
         ROS_INFO_STREAM(sub_obj_topic<<'\n');
         ROS_INFO_STREAM(sub_obj_topic_secondary<<'\n');
         ROS_INFO_STREAM(sub_yaw_topic<<'\n');
@@ -218,6 +234,7 @@ public:
         obj_secondary_sub.subscribe (nh,sub_obj_topic_secondary,1);
         pose_sub.subscribe(nh,sub_pose_topic,1);
         yaw_sub.subscribe(nh,sub_yaw_topic,1);
+        sec_sub.subscribe(nh,sub_sec_topic,1);
         // publishers
 
         pub_pose_topic += "/";
@@ -225,8 +242,8 @@ public:
         pub_pose_topic += "/control_manager/reference";
 
         // ------------------------------------------------------------------- 
-        sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub,pose_sub,yaw_sub));
-        sync->registerCallback(boost::bind(&SensFuseTwo::callback_two,this, _1,_2,_3,_4));
+        sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub,pose_sub,yaw_sub,sec_sub));
+        sync->registerCallback(boost::bind(&SensFuseTwo::callback_two,this, _1,_2,_3,_4,_5));
         client = nh.serviceClient<mrs_msgs::ReferenceStampedSrv>(pub_pose_topic);
         // -------------------------------------------------------------------
         // Taking parameters to set robot position
@@ -333,23 +350,23 @@ public:
     }
 
     //--------  COST FUNCTIONS ------------------------------
-    float CostX(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat state_cov,float object_cov,float offset_x)
+    float CostX(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat sec_pose,cv::Mat state_cov,float object_cov,float offset_x)
     {        
-        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov; //-10 -4  
+        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_AVOIDANCE*1/std::pow(w.at<float>(0) - (sec_pose.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov; //-10 -4  
         return resulting_cost_x;
     }
-    float CostY(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat state_cov,float object_cov,float offset_y)
+    float CostY(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat sec_pose,cv::Mat state_cov,float object_cov,float offset_y)
     {
-        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2)  + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov;  
+        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_AVOIDANCE*1/std::pow(w.at<float>(1) - (sec_pose.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov;  
         return resulting_cost_y;
     }
-    float CostZ(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat state_cov,float object_cov,float offset_z)
+    float CostZ(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat sec_pose,cv::Mat state_cov,float object_cov,float offset_z)
     {
-        resulting_cost_z = CONTROL_GAIN_STATE_Z*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov;  
+        resulting_cost_z = CONTROL_GAIN_STATE_Z*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2)  + CONTROL_GAIN_AVOIDANCE*1/std::pow(w.at<float>(2) - (sec_pose.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov;  
         return resulting_cost_z;
     }
 
-    float CostYaw(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat state_cov,float object_cov)
+    float CostYaw(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat sec_pose,cv::Mat state_cov,float object_cov)
     {
         resulting_cost_yaw = CONTROL_GAIN_STATE*std::pow((w.at<float>(3) - w_prev.at<float>(3)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(3) - (master_pose.at<float>(3))),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6  + CONTROL_GAIN_DETECTION*object_cov;  
         return resulting_cost_yaw;
@@ -362,20 +379,20 @@ public:
     }
 
     
-    cv::Mat calculateFormation( cv::Mat w,cv::Mat master_pose,cv::Mat state_cov,float object_cov)
+    cv::Mat calculateFormation( cv::Mat w,cv::Mat master_pose, cv::Mat sec_pose,cv::Mat state_cov,float object_cov)
     {
     //------------------------------------------------------
         //------------RPROP----------------
         // goal-driven behaviour
-        cost_prev_x = CostX(w_prev,w_prev,master_pose,state_cov,object_cov,offset_x);
-        cost_prev_y = CostY(w_prev,w_prev,master_pose,state_cov,object_cov,offset_y);
-        cost_prev_z = CostZ(w_prev,w_prev,master_pose,state_cov,object_cov,offset_z);
-        cost_prev_yaw = CostYaw(w_prev,w_prev,master_pose,state_cov,object_cov);
+        cost_prev_x = CostX(w_prev,w_prev,master_pose,sec_pose,state_cov,object_cov,offset_x);
+        cost_prev_y = CostY(w_prev,w_prev,master_pose,sec_pose,state_cov,object_cov,offset_y);
+        cost_prev_z = CostZ(w_prev,w_prev,master_pose,sec_pose,state_cov,object_cov,offset_z);
+        cost_prev_yaw = CostYaw(w_prev,w_prev,master_pose,sec_pose,state_cov,object_cov);
 
-        cost_cur_x = CostX(w,w_prev,master_pose,state_cov,object_cov,offset_x);
-        cost_cur_y = CostY(w,w_prev,master_pose,state_cov,object_cov,offset_y);
-        cost_cur_z = CostZ(w,w_prev,master_pose,state_cov,object_cov,offset_z);
-        cost_cur_yaw = CostYaw(w,w_prev,master_pose,state_cov,object_cov);
+        cost_cur_x = CostX(w,w_prev,master_pose,sec_pose,state_cov,object_cov,offset_x);
+        cost_cur_y = CostY(w,w_prev,master_pose,sec_pose,state_cov,object_cov,offset_y);
+        cost_cur_z = CostZ(w,w_prev,master_pose,sec_pose,state_cov,object_cov,offset_z);
+        cost_cur_yaw = CostYaw(w,w_prev,master_pose,sec_pose,state_cov,object_cov);
 
         cost_cur.push_back(cost_cur_x);
         cost_cur.push_back(cost_cur_y);
@@ -415,10 +432,10 @@ public:
         for(int j=0;j<k;j++)
         {
             // Main RPROP loop
-            cost_cur_x = CostX(w,w_prev,master_pose,state_cov,object_cov,offset_x);
-            cost_cur_y = CostY(w,w_prev,master_pose,state_cov,object_cov,offset_y);
-            cost_cur_z = CostZ(w,w_prev,master_pose,state_cov,object_cov,offset_z);
-            cost_cur_yaw = CostYaw(w,w_prev,master_pose,state_cov,object_cov);
+            cost_cur_x = CostX(w,w_prev,master_pose,sec_pose,state_cov,object_cov,offset_x);
+            cost_cur_y = CostY(w,w_prev,master_pose,sec_pose,state_cov,object_cov,offset_y);
+            cost_cur_z = CostZ(w,w_prev,master_pose,sec_pose,state_cov,object_cov,offset_z);
+            cost_cur_yaw = CostYaw(w,w_prev,master_pose,sec_pose,state_cov,object_cov);
 
             cost_cur[0] = cost_cur_x;
             cost_cur[1] = cost_cur_y;
@@ -512,7 +529,7 @@ public:
     }
     
     // void callback_two(PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
-    void callback_two(const PoseWithCovarianceArrayStampedConstPtr& obj,const PoseWithCovarianceArrayStampedConstPtr& obj_secondary,const nav_msgs::OdometryConstPtr& pose,const EstimatedStateConstPtr& yaw)
+    void callback_two(const PoseWithCovarianceArrayStampedConstPtr& obj,const PoseWithCovarianceArrayStampedConstPtr& obj_secondary,const nav_msgs::OdometryConstPtr& pose,const EstimatedStateConstPtr& yaw, const nav_msgs::OdometryConstPtr& sec_pose)
     {
         ROS_INFO_STREAM("Sync\n");
         
@@ -522,8 +539,15 @@ public:
         pose_y = (float)(pose->pose.pose.position.y);
         pose_z = (float)(pose->pose.pose.position.z);
 
+        sec_x = (float)(sec_pose->pose.pose.position.x);
+        sec_y = (float)(sec_pose->pose.pose.position.y);
+        sec_z = (float)(sec_pose->pose.pose.position.z);
+        
         state = (cv::Mat_<float>(4,1) << pose_x,pose_y,pose_z,yaw->state[0]);
         state_cov = SensFuseTwo::convertToCov(pose);
+
+        state_sec = (cv::Mat_<float>(3,1) << sec_x,sec_y,sec_z);
+        state_sec_cov = SensFuseTwo::convertToCov(sec_pose);
 
         if (count < 1)
         {
@@ -602,7 +626,7 @@ public:
         offset_x = max_radius*cos(offset_angle);
         offset_y = max_radius*sin(offset_angle);
 
-        w = SensFuseTwo::calculateFormation(state, master_pose, state_cov, cov_avg);
+        w = SensFuseTwo::calculateFormation(state, master_pose, state_sec,state_cov, cov_avg);
         SensFuseTwo::moveDrone(w);
         
         prevState.x = statePt.x;
