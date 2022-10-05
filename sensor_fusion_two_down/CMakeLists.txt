@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   mrs_msgs
+  message_filters
 )
 find_package(OpenCV REQUIRED)
 ## System dependencies are found with CMake's conventions
@@ -109,7 +110,9 @@ find_package(OpenCV REQUIRED)
 
 catkin_package(
   INCLUDE_DIRS
-  CATKIN_DEPENDS roscpp
+  CATKIN_DEPENDS 
+                 message_filters
+                 roscpp
                  sensor_msgs
                  std_msgs
                  cv_bridge

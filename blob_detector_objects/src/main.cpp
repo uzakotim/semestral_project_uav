@@ -73,9 +73,14 @@ private:
     message_filters::Subscriber<EstimatedState> yaw_sub;
 
     // synchronization
-    typedef sync_policies::ApproximateTime<Image,Image,Odometry,EstimatedState> MySyncPolicy;
+    // typedef sync_policies::ApproximateTime<Image,Image,Odometry,EstimatedState> MySyncPolicy;
+    // typedef Synchronizer<MySyncPolicy> Sync;
+    // boost::shared_ptr<Sync> sync;
+
+    typedef sync_policies::ApproximateTime<Image,Image> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
+
 
     // topics
     std::string image_sub_topic       = "";
@@ -175,8 +180,12 @@ public:
         yaw_sub.subscribe(nh,yaw_sub_topic,1);
 
         //synchronization
-        sync.reset(new Sync(MySyncPolicy(10), image_sub,depth_sub,pose_sub,yaw_sub));
-        sync->registerCallback(boost::bind(&BlobDetector::callback,this,_1,_2,_3,_4));
+        // sync.reset(new Sync(MySyncPolicy(10), image_sub,depth_sub,pose_sub,yaw_sub));
+        // sync->registerCallback(boost::bind(&BlobDetector::callback,this,_1,_2,_3,_4));
+
+        sync.reset(new Sync(MySyncPolicy(10), image_sub,depth_sub));
+        sync->registerCallback(boost::bind(&BlobDetector::callback,this,_1,_2));
+
 
         //---Kalman Filter Parameters---->>----
         KF.transitionMatrix = (cv::Mat_<float>(6,6) <<  1,0,0,1,0,0,
@@ -376,7 +385,8 @@ public:
     }
 
 
-    void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg, const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
+    // void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg, const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
+    void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg)
     {
 
         if (PRINT_OUT == 1)
@@ -412,6 +422,9 @@ public:
         cv::Mat drawing = cv::Mat::zeros(cv_image.size(), CV_8UC3 );
         
         //---------------------MEASUREMENTS---------------------------
+
+        /*
+
         state           = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
         yaw_value       = (float)(yaw->state[0]);
         offset          = (cv::Mat_<float>(3,1) << (CAMERA_OFFSET*cos(yaw_value)),(CAMERA_OFFSET*sin(yaw_value)),0); // 0.2
@@ -494,6 +507,7 @@ public:
                 }
         }
 
+        */
         // ---------------------MSG-----------------------------------------------
         cv::Mat display = cv_image + drawing;
         msg_output= cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();

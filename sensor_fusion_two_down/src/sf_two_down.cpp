@@ -65,22 +65,26 @@ using namespace sensor_msgs;
 class SensFuseTwo
 {
 
-private:
-    typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped,PoseWithCovarianceArrayStamped,Odometry,EstimatedState> MySyncPolicy;
-    typedef Synchronizer<MySyncPolicy> Sync;
-    boost::shared_ptr<Sync> sync;
-public:
-
-// ---------------------PUB and SUB---------------------------------
+private:    
+    
+    ros::NodeHandle nh;
     ros::Publisher goal_pub;
-
+    
     message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_sub;
     message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_secondary_sub;
 
     message_filters::Subscriber<Odometry> pose_sub;
     message_filters::Subscriber<EstimatedState> yaw_sub;
 
-// -----------------------------------------------------------------
+
+    // typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped,PoseWithCovarianceArrayStamped,Odometry,EstimatedState> MySyncPolicy;
+    // typedef Synchronizer<MySyncPolicy> Sync;
+    // boost::shared_ptr<Sync> sync;
+
+    typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped,PoseWithCovarianceArrayStamped> MySyncPolicy;
+    typedef Synchronizer<MySyncPolicy> Sync;
+    boost::shared_ptr<Sync> sync;
+
 
     std::string sub_obj_topic           = "";
     std::string sub_obj_topic_secondary = "";
@@ -90,6 +94,9 @@ public:
 
     std::string pub_pose_topic          = "";
     std::string pub_goal_topic          = "";
+
+public:
+// -----------------------------------------------------------------
 
     //---Kalman Filter Parameters---->>----
 
@@ -101,7 +108,7 @@ public:
 
     cv::Point3f center3D;
 
-    cv::Mat main_cov,secondary_cov, third_cov;
+    cv::Mat main_cov,secondary_cov;
     // ---<< Kalman Filter Parameters ----
 
     // ---------OUTPUT MSG-----------------------------------
@@ -183,7 +190,7 @@ public:
     cv::Point3f prevState;
     //-----------------------------------------------------------------------------------------------------------------
 
-    SensFuseTwo(ros::NodeHandle nh,const char* &name_main, const char* &name_secondary,const float &angle_parameter,const float &z_parameter)
+    SensFuseTwo(char* name_main, char* name_secondary,float angle_parameter,float z_parameter)
     {   
 
     // ---------------------INITIALIZATION--------------------------------------
@@ -216,8 +223,14 @@ public:
         pub_pose_topic += "/control_manager/reference";
 
         // ------------------------------------------------------------------- 
-        sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub,pose_sub,yaw_sub));
-        sync->registerCallback(boost::bind(&SensFuseTwo::callback_two,this, _1,_2,_3,_4));
+        // sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub,pose_sub,yaw_sub));
+        // sync->registerCallback(boost::bind(&SensFuseTwo::callback_two,this, _1,_2,_3,_4));
+        
+        sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub));
+        sync->registerCallback(boost::bind(&SensFuseTwo::callback_two,this, _1,_2));
+        
+        
+        
         client = nh.serviceClient<mrs_msgs::ReferenceStampedSrv>(pub_pose_topic);
         // -------------------------------------------------------------------
         // Taking parameters to set robot position
@@ -502,16 +515,20 @@ public:
         return std::accumulate(v.begin(), v.end(), 0.0) / v.size();
     }
     
-    void callback_two(PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
+    // void callback_two(PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
+    void callback_two(PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary)
     {
         if (PRINT_OUT == 1)
-            ROS_INFO_STREAM("[SYNC]: PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary, OdometryConstPtr pose,EstimatedStateConstPtr yaw");
-        cv::Point3f predictPt = PredictUsingKalmanFilter();
+            // ROS_INFO_STREAM("[SYNC]: PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary, OdometryConstPtr pose,EstimatedStateConstPtr yaw");
+            ROS_INFO_STREAM("[Synchronization successful]");
+
+        // cv::Point3f predictPt = PredictUsingKalmanFilter();
         //------------MEASUREMENTS------------------------    
+        /*
         pose_x = (float)(pose->pose.pose.position.x);
         pose_y = (float)(pose->pose.pose.position.y);
         pose_z = (float)(pose->pose.pose.position.z);
-
+        
         state = (cv::Mat_<float>(4,1) << pose_x,pose_y,pose_z,yaw->state[0]);
         state_cov = SensFuseTwo::convertToCov(pose);
 
@@ -607,7 +624,7 @@ public:
         prevState.x = statePt.x;
         prevState.y = statePt.y;
         prevState.z = statePt.z;
-
+        */
         count++;
         if (count>100)
             count = 2;
@@ -640,11 +657,9 @@ int main(int argc, char** argv)
     if(!(source_cmd_z>>offset_parameter_z)) return 1;
 
     ros::init(argc, argv, node_name);
-    ros::NodeHandle nh;
-    const char * first  = argv[1];
-    const char * second = argv[2];
-    SensFuseTwo sf(nh,first,second,offset_parameter_angle,offset_parameter_z);
-
+    char * first  = argv[1];
+    char * second = argv[2];
+    SensFuseTwo sf(first,second,offset_parameter_angle,offset_parameter_z);
     ros::spin();
 
     return 0;

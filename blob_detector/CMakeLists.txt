@@ -9,6 +9,7 @@ project(blob_detector)
 ## is used, also find other catkin packages
 
 find_package(catkin REQUIRED COMPONENTS
+  message_filters
   cv_bridge
   image_transport
   roscpp
@@ -109,7 +110,8 @@ find_package(OpenCV REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS
-  CATKIN_DEPENDS roscpp
+  CATKIN_DEPENDS message_filters
+                 roscpp
                  sensor_msgs
                  std_msgs
                  cv_bridge
