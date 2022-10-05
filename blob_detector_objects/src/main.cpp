@@ -44,7 +44,7 @@ using namespace sensor_msgs;
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
 
-#define COLOR 7
+#define COLOR 4
 // 1 - orange
 // 2 - yellow
 // 3 - green

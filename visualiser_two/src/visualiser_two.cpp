@@ -62,6 +62,7 @@ public:
 
     message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_sub;
     message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_secondary_sub;
+    std::mutex mutex_;
     // message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_third_sub;
 // -----------------------------------------------------------------
 

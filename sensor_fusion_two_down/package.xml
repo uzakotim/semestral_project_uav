@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>sensor_fusion_two_down</name>
-  <version>0.0.0</version>
-  <description>The sensor_fusion package</description>
+  <version>0.0.1</version>
+  <description>The sensor_fusion two package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -50,6 +50,7 @@
   <!--   <doc_depend>doxygen</doc_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
   <depend>message_filters</depend>
+  <depend>boost</depend>
   <build_depend>cv_bridge</build_depend>
   <build_depend>image_transport</build_depend>
   <build_depend>roscpp</build_depend>

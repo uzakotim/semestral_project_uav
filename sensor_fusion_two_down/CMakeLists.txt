@@ -8,6 +8,7 @@ project(sensor_fusion_two_down)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  message_filters
   cv_bridge
   image_transport
   roscpp
@@ -15,7 +16,6 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   mrs_msgs
-  message_filters
 )
 find_package(OpenCV REQUIRED)
 ## System dependencies are found with CMake's conventions
@@ -110,14 +110,14 @@ find_package(OpenCV REQUIRED)
 
 catkin_package(
   INCLUDE_DIRS
-  CATKIN_DEPENDS 
-                 message_filters
+  CATKIN_DEPENDS message_filters
                  roscpp
                  sensor_msgs
                  std_msgs
                  cv_bridge
                  image_transport
                  mrs_msgs
+                 boost
 )
 
 
