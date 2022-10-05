@@ -352,17 +352,17 @@ public:
     //--------  COST FUNCTIONS ------------------------------
     float CostX(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat sec_pose,cv::Mat state_cov,float object_cov,float offset_x)
     {        
-        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_AVOIDANCE*1/std::pow(w.at<float>(0) - (sec_pose.at<float>(0)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov; //-10 -4  
+        resulting_cost_x = CONTROL_GAIN_STATE*std::pow((w.at<float>(0) - w_prev.at<float>(0)),2) + CONTROL_GAIN_AVOIDANCE*1/(std::pow(w.at<float>(0) - (sec_pose.at<float>(0)),2)+0.001) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(0) - (master_pose.at<float>(0)+offset_x)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov; //-10 -4  
         return resulting_cost_x;
     }
     float CostY(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat sec_pose,cv::Mat state_cov,float object_cov,float offset_y)
     {
-        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_AVOIDANCE*1/std::pow(w.at<float>(1) - (sec_pose.at<float>(1)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov;  
+        resulting_cost_y = CONTROL_GAIN_STATE*std::pow((w.at<float>(1) - w_prev.at<float>(1)),2) + CONTROL_GAIN_AVOIDANCE*1/(std::pow(w.at<float>(1) - (sec_pose.at<float>(1)),2)+0.001) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(1) - (master_pose.at<float>(1)+offset_y)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov;  
         return resulting_cost_y;
     }
     float CostZ(cv::Mat w,cv::Mat w_prev,cv::Mat master_pose,cv::Mat sec_pose,cv::Mat state_cov,float object_cov,float offset_z)
     {
-        resulting_cost_z = CONTROL_GAIN_STATE_Z*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2)  + CONTROL_GAIN_AVOIDANCE*1/std::pow(w.at<float>(2) - (sec_pose.at<float>(2)),2) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov;  
+        resulting_cost_z = CONTROL_GAIN_STATE_Z*std::pow((w.at<float>(2) - w_prev.at<float>(2)),2)  + CONTROL_GAIN_AVOIDANCE*1/(std::pow(w.at<float>(2) - (sec_pose.at<float>(2)),2)+0.001) + CONTROL_GAIN_GOAL*std::pow((w.at<float>(2) - (master_pose.at<float>(2)+offset_z)),2) + CONTROL_GAIN_STATE_ESTIMATION*cv::determinant(state_cov)*10e-6 + CONTROL_GAIN_DETECTION*object_cov;  
         return resulting_cost_z;
     }
 
