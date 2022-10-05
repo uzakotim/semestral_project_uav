@@ -36,7 +36,7 @@ using namespace nav_msgs;
 using namespace sensor_msgs;
 
 
-#define BLOB_SIZE 50 //15
+#define BLOB_SIZE 100 //15
 // 25 - optimal
 // 10 - detects UAV motors
 #define CAMERA_OFFSET 0.2
@@ -44,7 +44,7 @@ using namespace sensor_msgs;
 #define IMAGE_WIDTH 1280
 #define IMAGE_HEIGHT 720
 
-#define COLOR 4
+#define COLOR 7
 // 1 - orange
 // 2 - yellow
 // 3 - green
@@ -73,13 +73,13 @@ private:
     message_filters::Subscriber<EstimatedState> yaw_sub;
 
     // synchronization
-    // typedef sync_policies::ApproximateTime<Image,Image,Odometry,EstimatedState> MySyncPolicy;
-    // typedef Synchronizer<MySyncPolicy> Sync;
-    // boost::shared_ptr<Sync> sync;
-
-    typedef sync_policies::ApproximateTime<Image,Image> MySyncPolicy;
+    typedef sync_policies::ApproximateTime<Image,Image,Odometry,EstimatedState> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
+
+    // typedef sync_policies::ApproximateTime<Image,Image> MySyncPolicy;
+    // typedef Synchronizer<MySyncPolicy> Sync;
+    // boost::shared_ptr<Sync> sync;
 
 
     // topics
@@ -159,11 +159,11 @@ public:
         //subscribers
         image_sub_topic += "/";
         image_sub_topic += name;
-        image_sub_topic +="/down_rgbd/color/image_raw";
+        image_sub_topic +="/rgbd_down/color/image_raw";
 
         depth_sub_topic  += "/";
         depth_sub_topic  += name;
-        depth_sub_topic  += "/down_rgbd/aligned_depth_to_color/image_raw";
+        depth_sub_topic  += "/rgbd_down/aligned_depth_to_color/image_raw";
 
         pose_sub_topic += "/";
         pose_sub_topic += name;
@@ -180,11 +180,11 @@ public:
         yaw_sub.subscribe(nh,yaw_sub_topic,1);
 
         //synchronization
-        // sync.reset(new Sync(MySyncPolicy(10), image_sub,depth_sub,pose_sub,yaw_sub));
-        // sync->registerCallback(boost::bind(&BlobDetector::callback,this,_1,_2,_3,_4));
+        sync.reset(new Sync(MySyncPolicy(10), image_sub,depth_sub,pose_sub,yaw_sub));
+        sync->registerCallback(boost::bind(&BlobDetector::callback,this,_1,_2,_3,_4));
 
-        sync.reset(new Sync(MySyncPolicy(10), image_sub,depth_sub));
-        sync->registerCallback(boost::bind(&BlobDetector::callback,this,_1,_2));
+        // sync.reset(new Sync(MySyncPolicy(10), image_sub,depth_sub));
+        // sync->registerCallback(boost::bind(&BlobDetector::callback,this,_1,_2));
 
 
         //---Kalman Filter Parameters---->>----
@@ -307,7 +307,6 @@ public:
         cv::Mat          mask1,mask2,total;
         cv::inRange     (image, BlobDetector::color_one_min, BlobDetector::color_one_max, mask1);
         cv::inRange     (image, BlobDetector::color_two_min, BlobDetector::color_two_max, mask2);
-        std::cout<<"HELLO"<<'\n';
         total = mask1 | mask2;
         
         return total;
@@ -385,8 +384,8 @@ public:
     }
 
 
-    // void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg, const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
-    void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg)
+    void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg, const OdometryConstPtr& pose, const EstimatedStateConstPtr& yaw)
+    // void callback(const ImageConstPtr& msg,const ImageConstPtr& depth_msg)
     {
 
         if (PRINT_OUT == 1)
@@ -422,8 +421,6 @@ public:
         cv::Mat drawing = cv::Mat::zeros(cv_image.size(), CV_8UC3 );
         
         //---------------------MEASUREMENTS---------------------------
-
-        /*
 
         state           = (cv::Mat_<float>(3,1)<< pose->pose.pose.position.x,pose->pose.pose.position.y,pose->pose.pose.position.z);
         yaw_value       = (float)(yaw->state[0]);
@@ -507,7 +504,6 @@ public:
                 }
         }
 
-        */
         // ---------------------MSG-----------------------------------------------
         cv::Mat display = cv_image + drawing;
         msg_output= cv_bridge::CvImage(std_msgs::Header(), "bgr8", display).toImageMsg();

@@ -47,6 +47,7 @@
 #define CONTROL_GAIN_STATE_ESTIMATION 0.001 //200
 #define CONTROL_GAIN_STATE 0.1  // 1
 #define CONTROL_GAIN_STATE_Z 0.01 // 100
+#define RADIUS 4.0
 // influences how sharp are drone's motions - the lower the sharper
 
 #define DELTA_MAX 0.5 //0.5
@@ -58,7 +59,7 @@
 // -----------------------------------------------------------------
 using namespace geometry_msgs;
 using namespace message_filters;
-using namespace mrs_msgs;
+// using namespace mrs_msgs;
 using namespace nav_msgs;
 using namespace sensor_msgs;
 
@@ -69,19 +70,21 @@ private:
     
     ros::NodeHandle nh;
     ros::Publisher goal_pub;
-    
-    message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_sub;
-    message_filters::Subscriber<PoseWithCovarianceArrayStamped> obj_secondary_sub;
 
+    message_filters::Subscriber<mrs_msgs::PoseWithCovarianceArrayStamped> obj_sub;
+    message_filters::Subscriber<mrs_msgs::PoseWithCovarianceArrayStamped> obj_secondary_sub;
     message_filters::Subscriber<Odometry> pose_sub;
-    message_filters::Subscriber<EstimatedState> yaw_sub;
+    message_filters::Subscriber<Odometry> pose_secondary_sub;
 
 
-    // typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped,PoseWithCovarianceArrayStamped,Odometry,EstimatedState> MySyncPolicy;
+    // message_filters::Subscriber<EstimatedState> yaw_sub;
+
+
+    // typedef sync_policies::ApproximateTime<mrs_msgs::PoseWithCovarianceArrayStamped,mrs_msgs::PoseWithCovarianceArrayStamped,Odometry,EstimatedState> MySyncPolicy;
     // typedef Synchronizer<MySyncPolicy> Sync;
     // boost::shared_ptr<Sync> sync;
 
-    typedef sync_policies::ApproximateTime<PoseWithCovarianceArrayStamped,PoseWithCovarianceArrayStamped> MySyncPolicy;
+    typedef sync_policies::ApproximateTime<mrs_msgs::PoseWithCovarianceArrayStamped, mrs_msgs::PoseWithCovarianceArrayStamped, Odometry,Odometry> MySyncPolicy;
     typedef Synchronizer<MySyncPolicy> Sync;
     boost::shared_ptr<Sync> sync;
 
@@ -92,8 +95,11 @@ private:
     std::string sub_pose_topic          = "";
     std::string sub_yaw_topic           = "";
 
+    std::string sub_pose_secondary_topic      = "";
+    // std::string sub_yaw_secondary_topic       = "";
+
     std::string pub_pose_topic          = "";
-    std::string pub_goal_topic          = "";
+    // std::string pub_goal_topic          = "";
 
 public:
 // -----------------------------------------------------------------
@@ -131,6 +137,10 @@ public:
     float pose_x {0.0};
     float pose_y {0.0};
     float pose_z {0.0};
+
+    float pose_secondary_x {0.0};
+    float pose_secondary_y {0.0};
+    float pose_secondary_z {0.0};
 
     float init_x {0.0};
     float init_y {0.0};
@@ -173,6 +183,7 @@ public:
     cv::Mat master_pose;
     
     cv::Mat state,state_cov,obj_cov;
+    cv::Mat state_secondary,state_secondary_cov;
 
     cv::Mat tracker_vector = (cv::Mat_<float>(4,1) << 0,0,0,0);
     
@@ -212,10 +223,18 @@ public:
         sub_pose_topic += name_main;
         sub_pose_topic += "/odometry/odom_main/";
 
+        sub_pose_secondary_topic += "/";
+        sub_pose_secondary_topic += name_secondary;
+        sub_pose_secondary_topic += "/odometry/odom_main/";
+
+
         obj_sub.subscribe(nh,sub_obj_topic,1);
         obj_secondary_sub.subscribe (nh,sub_obj_topic_secondary,1);
+        
         pose_sub.subscribe(nh,sub_pose_topic,1);
-        yaw_sub.subscribe(nh,sub_yaw_topic,1);
+        pose_secondary_sub.subscribe(nh,sub_pose_secondary_topic,1);
+        
+        // yaw_sub.subscribe(nh,sub_yaw_topic,1);
         // publishers
 
         pub_pose_topic += "/";
@@ -226,8 +245,8 @@ public:
         // sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub,pose_sub,yaw_sub));
         // sync->registerCallback(boost::bind(&SensFuseTwo::callback_two,this, _1,_2,_3,_4));
         
-        sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub));
-        sync->registerCallback(boost::bind(&SensFuseTwo::callback_two,this, _1,_2));
+        sync.reset(new Sync(MySyncPolicy(10),obj_sub,obj_secondary_sub,pose_sub,pose_secondary_sub));
+        sync->registerCallback(boost::bind(&SensFuseTwo::callback_two,this, _1,_2,_3,_4));
         
         
         
@@ -374,41 +393,42 @@ public:
         cost_prev_x = CostX(w_prev,w_prev,master_pose,state_cov,object_cov,offset_x);
         cost_prev_y = CostY(w_prev,w_prev,master_pose,state_cov,object_cov,offset_y);
         cost_prev_z = CostZ(w_prev,w_prev,master_pose,state_cov,object_cov,offset_z);
-        cost_prev_yaw = CostYaw(w_prev,w_prev,master_pose,state_cov,object_cov);
+        // cost_prev_yaw = CostYaw(w_prev,w_prev,master_pose,state_cov,object_cov);
 
         cost_cur_x = CostX(w,w_prev,master_pose,state_cov,object_cov,offset_x);
         cost_cur_y = CostY(w,w_prev,master_pose,state_cov,object_cov,offset_y);
         cost_cur_z = CostZ(w,w_prev,master_pose,state_cov,object_cov,offset_z);
-        cost_cur_yaw = CostYaw(w,w_prev,master_pose,state_cov,object_cov);
+        // cost_cur_yaw = CostYaw(w,w_prev,master_pose,state_cov,object_cov);
 
         cost_cur.push_back(cost_cur_x);
         cost_cur.push_back(cost_cur_y);
         cost_cur.push_back(cost_cur_z);
-        cost_cur.push_back(cost_cur_yaw);
+        // cost_cur.push_back(cost_cur_yaw);
         
         cost_prev.push_back(cost_prev_x);
         cost_prev.push_back(cost_prev_y);
         cost_prev.push_back(cost_prev_z);
-        cost_prev.push_back(cost_prev_yaw);
+        // cost_prev.push_back(cost_prev_yaw);
 
         cost_dif_x = (cost_cur_x - cost_prev_x);
         cost_dif_y = (cost_cur_y - cost_prev_y);
         cost_dif_z = (cost_cur_z - cost_prev_z);
-        cost_dif_yaw = (cost_cur_yaw - cost_prev_yaw);
+        // cost_dif_yaw = (cost_cur_yaw - cost_prev_yaw);
 
 
         step_x = w.at<float>(0) - w_prev.at<float>(0);
         step_y = w.at<float>(1) - w_prev.at<float>(1);
         step_z = w.at<float>(2) - w_prev.at<float>(2);
-        step_yaw = w.at<float>(3) - w_prev.at<float>(3);
+        // step_yaw = w.at<float>(3) - w_prev.at<float>(3);
 
         grad_prev.push_back(cost_dif_x/step_x);
         grad_prev.push_back(cost_dif_y/step_y);
         grad_prev.push_back(cost_dif_z/step_z);
-        grad_prev.push_back(cost_dif_yaw/step_yaw);
+        // grad_prev.push_back(cost_dif_yaw/step_yaw);
 
         // computing longer when standing
-        if ((std::abs(w.at<float>(0) - w_prev.at<float>(0))<0.2) || (std::abs(w.at<float>(1) - w_prev.at<float>(1))<0.2) || (std::abs(w.at<float>(2) - w_prev.at<float>(2))<0.2) || (std::abs(w.at<float>(3) - w_prev.at<float>(3))<0.2))
+        // if ((std::abs(w.at<float>(0) - w_prev.at<float>(0))<0.2) || (std::abs(w.at<float>(1) - w_prev.at<float>(1))<0.2) || (std::abs(w.at<float>(2) - w_prev.at<float>(2))<0.2) || (std::abs(w.at<float>(3) - w_prev.at<float>(3))<0.2)`)
+        if ((std::abs(w.at<float>(0) - w_prev.at<float>(0))<0.2) || (std::abs(w.at<float>(1) - w_prev.at<float>(1))<0.2) || (std::abs(w.at<float>(2) - w_prev.at<float>(2))<0.2))
         {
                 k = CALCULATION_STEPS;
         } else  k = CALCULATIOM_STEPS_IN_MOTION;
@@ -422,30 +442,30 @@ public:
             cost_cur_x = CostX(w,w_prev,master_pose,state_cov,object_cov,offset_x);
             cost_cur_y = CostY(w,w_prev,master_pose,state_cov,object_cov,offset_y);
             cost_cur_z = CostZ(w,w_prev,master_pose,state_cov,object_cov,offset_z);
-            cost_cur_yaw = CostYaw(w,w_prev,master_pose,state_cov,object_cov);
+            // cost_cur_yaw = CostYaw(w,w_prev,master_pose,state_cov,object_cov);
 
             cost_cur[0] = cost_cur_x;
             cost_cur[1] = cost_cur_y;
             cost_cur[2] = cost_cur_z;
-            cost_cur[3] = cost_cur_yaw;
+            // cost_cur[3] = cost_cur_yaw;
 
             cost_dif_x = (cost_cur_x - cost_prev_x);
             cost_dif_y = (cost_cur_y - cost_prev_y);
             cost_dif_z = (cost_cur_z - cost_prev_z);
-            cost_dif_yaw = (cost_cur_yaw - cost_prev_yaw);
+            // cost_dif_yaw = (cost_cur_yaw - cost_prev_yaw);
 
             step_x = w.at<float>(0) - w_prev.at<float>(0);
             step_y = w.at<float>(1) - w_prev.at<float>(1);
             step_z = w.at<float>(2) - w_prev.at<float>(2);
-            step_yaw = w.at<float>(3) - w_prev.at<float>(3);
+            // step_yaw = w.at<float>(3) - w_prev.at<float>(3);
             
             grad_cur[0] = cost_dif_x/step_x;
             grad_cur[1] = cost_dif_y/step_y;
             grad_cur[2] = cost_dif_z/step_z;
-            grad_cur[3] = cost_dif_yaw/step_yaw;
+            // grad_cur[3] = cost_dif_yaw/step_yaw;
 
             delta_prev = delta; 
-            for (int i = 0; i<4;i++)
+            for (int i = 0; i<3;i++)
             {
                 if ((grad_prev[i]*grad_cur[i])>0)
                 {
@@ -474,12 +494,12 @@ public:
             cost_prev_x = cost_cur_x;
             cost_prev_y = cost_cur_y;
             cost_prev_z = cost_cur_z;
-            cost_prev_yaw = cost_cur_yaw;
+            // cost_prev_yaw = cost_cur_yaw;
 
             cost_prev[0] = cost_prev_x;
             cost_prev[1] = cost_prev_y;
             cost_prev[2] = cost_prev_z;
-            cost_prev[3] = cost_prev_yaw;
+            // cost_prev[3] = cost_prev_yaw;
 
             
         }
@@ -495,7 +515,7 @@ public:
         srv.request.reference.position.x = w.at<float>(0);
         srv.request.reference.position.y = w.at<float>(1);
         srv.request.reference.position.z = w.at<float>(2);
-        srv.request.reference.heading    = w.at<float>(3); 
+        // srv.request.reference.heading    = w.at<float>(3); 
         
         if (client.call(srv))
         {
@@ -515,23 +535,30 @@ public:
         return std::accumulate(v.begin(), v.end(), 0.0) / v.size();
     }
     
-    // void callback_two(PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
-    void callback_two(PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary)
+    // void callback_two(mrs_msgs::PoseWithCovarianceArrayStampedConstPtr obj,mrs_msgs::PoseWithCovarianceArrayStampedConstPtr obj_secondary, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
+    void callback_two(mrs_msgs::PoseWithCovarianceArrayStampedConstPtr obj,mrs_msgs::PoseWithCovarianceArrayStampedConstPtr obj_secondary,OdometryConstPtr pose, OdometryConstPtr pose_secondary)
     {
-        if (PRINT_OUT == 1)
             // ROS_INFO_STREAM("[SYNC]: PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary, OdometryConstPtr pose,EstimatedStateConstPtr yaw");
-            ROS_INFO_STREAM("[Synchronization successful]");
+        ROS_INFO_STREAM("[Synchronization successful]");
 
         // cv::Point3f predictPt = PredictUsingKalmanFilter();
         //------------MEASUREMENTS------------------------    
-        /*
-        pose_x = (float)(pose->pose.pose.position.x);
-        pose_y = (float)(pose->pose.pose.position.y);
-        pose_z = (float)(pose->pose.pose.position.z);
         
-        state = (cv::Mat_<float>(4,1) << pose_x,pose_y,pose_z,yaw->state[0]);
-        state_cov = SensFuseTwo::convertToCov(pose);
+        // pose_x = (float)(pose->pose.pose.position.x);
+        // pose_y = (float)(pose->pose.pose.position.y);
+        // pose_z = (float)(pose->pose.pose.position.z);
+            
+        // pose_secondary_x = (float)(pose_secondary->pose.pose.position.x);
+        // pose_secondary_y = (float)(pose_secondary->pose.pose.position.y);
+        // pose_secondary_z = (float)(pose_secondary->pose.pose.position.z);
 
+        // state = (cv::Mat_<float>(4,1) << pose_x,pose_y,pose_z);
+        // state_cov = SensFuseTwo::convertToCov(pose);
+        
+        // state_secondary = (cv::Mat_<float>(4,1) << pose_secondary_x,pose_secondary_y,pose_z);
+        // state_secondary_cov = SensFuseTwo::convertToCov(pose);
+
+        /*        
         if (PRINT_OUT == 1)
             ROS_INFO_STREAM("[STATE]: "<<"\nx: "<<state.at<float>(0)<<"\ny: "<<state.at<float>(1)<<"\nz: "<<state.at<float>(2));
         if (count < 1)
@@ -539,13 +566,11 @@ public:
             init_x = pose_x;
             init_y = pose_y;
 
-            prevState.x = init_x;
-            prevState.y = init_y;
-            prevState.z = 0.5;
-
-            
+            prevState.x = (pose_x+pose_secondary_x)/2.0;
+            prevState.y = (pose_x+pose_secondary_y)/2.0;
+            prevState.z = (pose_z+pose_secondary_z)/2.0;
         }
-
+        
 
         std::vector<double> all_x,all_y,all_z,all_cov;
         std::priority_queue<double> all_radius;
@@ -564,13 +589,13 @@ public:
             all_cov.push_back(point.pose.orientation.w);
         }
 
-        if (all_x.size()==0)
+        if (all_x.size()<5)
         {
             center3D.x = prevState.x;
             center3D.y = prevState.y;
             center3D.z = prevState.z;
-            cov_avg = 1000;
-            max_radius = 3.0;
+            cov_avg = 0;
+            max_radius = RADIUS;
         }
         else
         {
@@ -590,17 +615,17 @@ public:
                 all_radius.push(value);
             }
             max_radius = all_radius.top();
-            if (max_radius<3.0){
-                max_radius = 3.0;
+            if (max_radius<RADIUS){
+                max_radius = RADIUS;
             }else
             {
-                max_radius = 2.0*all_radius.top()/3.0;
+                max_radius = all_radius.top();
             }
         }
         
-        SetMeasurement(center3D);
+        // SetMeasurement(center3D);
 
-        cv::Point3f statePt = UpdateKalmanFilter(measurement);
+        // cv::Point3f statePt = UpdateKalmanFilter(measurement);
 
         if (PRINT_OUT == 1)
         {
@@ -608,9 +633,9 @@ public:
             ROS_INFO_STREAM("[RADIUS]: "<<max_radius);
         }
         
-        goal_yaw = (float)(atan2(statePt.y-pose_y,statePt.x-pose_x));
-        
-        master_pose = (cv::Mat_<float>(4,1) << statePt.x,statePt.y,statePt.z,goal_yaw);
+        // goal_yaw = (float)(atan2(statePt.y-pose_y,statePt.x-pose_x));
+       
+        master_pose = (cv::Mat_<float>(3,1) << center3D.x,center3D.y,center3D.z);
         offset_x = max_radius*cos(offset_angle);
         offset_y = max_radius*sin(offset_angle);
 
@@ -621,13 +646,14 @@ public:
         }
         SensFuseTwo::moveDrone(w);
         
-        prevState.x = statePt.x;
-        prevState.y = statePt.y;
-        prevState.z = statePt.z;
-        */
+        prevState.x = center3D.x;
+        prevState.y = center3D.y;
+        prevState.z = center3D.z;
+    
         count++;
         if (count>100)
             count = 2;
+        */
     }
 };
 
