@@ -37,8 +37,8 @@
 
 // ---------------------MACROS--------------------------------------
 
-#define CALCULATION_STEPS 10 //10
-#define CALCULATIOM_STEPS_IN_MOTION 5 //5
+#define CALCULATION_STEPS 50 //10
+#define CALCULATIOM_STEPS_IN_MOTION 10 //5
 
 #define CONTROLLER_PERIOD 0.1
 
@@ -46,7 +46,7 @@
 #define CONTROL_GAIN_GOAL 300 //200
 #define CONTROL_GAIN_DETECTION 0.001 //200
 #define CONTROL_GAIN_STATE_ESTIMATION 0.001 //200
-#define CONTROL_GAIN_AVOIDANCE 0.2 //200
+#define CONTROL_GAIN_AVOIDANCE 10 //200
 #define CONTROL_GAIN_STATE 0.1  // 1
 #define CONTROL_GAIN_STATE_Z 0.01 // 100
 // influences how sharp are drone's motions - the lower the sharper
