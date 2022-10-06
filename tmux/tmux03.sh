@@ -27,7 +27,7 @@ SESSION_NAME=mav
 
 # following commands will be executed first in each window
 # * do NOT put ; at the end
-pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME"
+pre_input="mkdir -p $MAIN_DIR/$PROJECT_NAME; export WORLD_FILE=./world.yaml"
 
 # define commands
 # 'name' 'command'
@@ -61,9 +61,9 @@ input=(
 '
   'roscore' 'roscore
 '
-  'perception' 'waitForRos; export UAV_NAME="$UAV_NAME"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
+  'perception' 'waitForRos; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
 '
-  'motion_optimisation' 'waitForRos; export UAV_NAME1="uav3"; export UAV_NAME2="uav1" waitForOdometry; rosrun sensor_fusion_two_down sf_two_down $UAV_NAME1 $UAV_NAME2 0.0 3.0
+  'motion' 'waitForRos; export UAV_NAME1="$UAV_NAME"; export UAV_NAME2="uav1"; waitForOdometry; rosrun sensor_fusion_two_down sf_two_down $UAV_NAME1 $UAV_NAME2 0.0 3.0
 '
 )
 
