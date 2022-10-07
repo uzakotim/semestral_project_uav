@@ -21,8 +21,8 @@ windows:
   - spawn:
       layout: tiled
       panes:
-        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[1]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos -4 3 1 0.0"
-        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[2]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos 0 -2 1 0.0"
+        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[1]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos -4 0 1 0.0"
+        - waitForSimulation; rosservice call /mrs_drone_spawner/spawn "${UAV_NUMBERS[2]} $UAV_TYPE --enable-rangefinder --enable-realsense-down --enable-realsense-front --pos  4 0 1 0.0"
   - control:
       layout: tiled
       panes:
@@ -55,7 +55,7 @@ windows:
       layout: tiled
       panes:
         - export UAV_NAME="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun blob_detector_objects main_objects $UAV_NAME
-        - waitForRos; export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun sensor_fusion_two_down sf_two_down $UAV_NAME2 $UAV_NAME1 3.1415 3.0 #3.93
+        - waitForRos; export UAV_NAME1="uav${UAV_NUMBERS[1]}"; export UAV_NAME2="uav${UAV_NUMBERS[2]}"; waitForOdometry; rosrun sensor_fusion_two_down sf_two_down $UAV_NAME2 $UAV_NAME1 1.57 3.0 #3.93
   - gz_rate:
       layout: tiled
       panes:

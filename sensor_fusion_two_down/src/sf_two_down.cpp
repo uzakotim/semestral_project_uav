@@ -46,15 +46,16 @@
 #define CONTROL_GAIN_GOAL 300 //200
 #define CONTROL_GAIN_DETECTION 0.001 //200
 #define CONTROL_GAIN_STATE_ESTIMATION 0.001 //200
-#define CONTROL_GAIN_AVOIDANCE 10 //200
-#define CONTROL_GAIN_STATE 0.1  // 1
-#define CONTROL_GAIN_STATE_Z 0.01 // 100
+#define CONTROL_GAIN_AVOIDANCE 5 //200
+#define CONTROL_GAIN_STATE 1  // 1
+#define CONTROL_GAIN_STATE_Z 1 // 100
 // influences how sharp are drone's motions - the lower the sharper
 
 #define DELTA_MAX 0.5 //0.5
 // determines how fast drone optimises - the smaller the faster
 #define SEARCH_SIZE 8
 #define SEARCH_HEIGHT 3.0
+#define RADIUS 4.0
 
 // -----------------------------------------------------------------
 using namespace geometry_msgs;
@@ -458,7 +459,7 @@ public:
             grad_cur[3] = cost_dif_yaw/step_yaw;
 
             delta_prev = delta; 
-            for (int i = 0; i<4;i++)
+            for (int i = 0; i<3;i++)
             {
                 if ((grad_prev[i]*grad_cur[i])>0)
                 {
@@ -507,7 +508,8 @@ public:
 
         srv.request.reference.position.x = w.at<float>(0);
         srv.request.reference.position.y = w.at<float>(1);
-        srv.request.reference.position.z = w.at<float>(2);
+        // srv.request.reference.position.z = w.at<float>(2);
+        srv.request.reference.position.z = 3.0;
         srv.request.reference.heading    = w.at<float>(3); 
         
         if (client.call(srv))
@@ -553,12 +555,6 @@ public:
         {
             init_x = pose_x;
             init_y = pose_y;
-
-            prevState.x = init_x;
-            prevState.y = init_y;
-            prevState.z = 0.5;
-
-            
         }
 
 
@@ -579,60 +575,26 @@ public:
             all_cov.push_back(point.pose.orientation.w);
         }
 
-        if (all_x.size()==0)
-        {
-            center3D.x = prevState.x;
-            center3D.y = prevState.y;
-            center3D.z = prevState.z;
-            cov_avg = 1000;
-            max_radius = 3.0;
-        }
-        else
+        if (all_x.size()!=0)
         {
             center3D.x = SensFuseTwo::getAverage(all_x);
             center3D.y = SensFuseTwo::getAverage(all_y);
             center3D.z = SensFuseTwo::getAverage(all_z);
             cov_avg = SensFuseTwo::getAverage(all_cov);
+
+            ROS_INFO_STREAM("Centroid: x "<<center3D.x<<" y "<<center3D.y<<" z "<<center3D.z<<'\n');
             
-            for (PoseWithCovarianceIdentified point : obj->poses)
-            {
-                double value = std::sqrt(std::pow(point.pose.position.x-center3D.x,2) + std::pow(point.pose.position.y-center3D.y,2));
-                all_radius.push(value);
-            }
-            for (PoseWithCovarianceIdentified point : obj_secondary->poses)
-            {
-                double value = std::sqrt(std::pow(point.pose.position.x-center3D.x,2) + std::pow(point.pose.position.y-center3D.y,2));
-                all_radius.push(value);
-            }
-            max_radius = all_radius.top();
-            if (max_radius<3.0){
-                max_radius = 3.0;
-            }else
-            {
-                max_radius = 2.0*all_radius.top()/3.0;
-            }
+            goal_yaw = (float)(atan2(center3D.y-pose_y,center3D.x-pose_x));
+            
+            master_pose = (cv::Mat_<float>(4,1) << center3D.x,center3D.y,center3D.z,goal_yaw);
+            offset_x = RADIUS*cos(offset_angle);
+            offset_y = RADIUS*sin(offset_angle);
+
+            w = SensFuseTwo::calculateFormation(state, master_pose, state_sec,state_cov, cov_avg);
+            ROS_INFO_STREAM("Waypoint: w "<<w.at<float>(0)<<" y "<<w.at<float>(1)<<" z "<<w.at<float>(2)<<'\n');
+            SensFuseTwo::moveDrone(w);
+
         }
-        
-        SetMeasurement(center3D);
-
-        cv::Point3f statePt = UpdateKalmanFilter(measurement);
-
-        ROS_INFO_STREAM("Centroid: x "<<center3D.x<<" y "<<center3D.y<<" z "<<center3D.z<<'\n');
-        ROS_INFO_STREAM("Radius: r "<<max_radius<<'\n');
-        
-        goal_yaw = (float)(atan2(statePt.y-pose_y,statePt.x-pose_x));
-        
-        master_pose = (cv::Mat_<float>(4,1) << statePt.x,statePt.y,statePt.z,goal_yaw);
-        offset_x = max_radius*cos(offset_angle);
-        offset_y = max_radius*sin(offset_angle);
-
-        w = SensFuseTwo::calculateFormation(state, master_pose, state_sec,state_cov, cov_avg);
-        SensFuseTwo::moveDrone(w);
-        
-        prevState.x = statePt.x;
-        prevState.y = statePt.y;
-        prevState.z = statePt.z;
-
         count++;
         
     }

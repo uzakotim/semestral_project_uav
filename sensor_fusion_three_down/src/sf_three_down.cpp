@@ -30,10 +30,10 @@
 #include <string.h>
 #include <vector>
 #include <queue>
+#include <std_srvs/Trigger.h>
 
 
-
-
+bool allow_sensing = false;
 
 // ---------------------MACROS--------------------------------------
 
@@ -62,6 +62,7 @@ using namespace message_filters;
 using namespace mrs_msgs;
 using namespace nav_msgs;
 using namespace sensor_msgs;
+using namespace std_srvs;
 
 class SensFuseThree
 {
@@ -514,6 +515,7 @@ public:
     
     void callback_three(PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary,PoseWithCovarianceArrayStampedConstPtr obj_third, OdometryConstPtr pose,EstimatedStateConstPtr yaw)
     {
+
         if (PRINT_OUT == 1)
             ROS_INFO_STREAM("[SYNC]: PoseWithCovarianceArrayStampedConstPtr obj,PoseWithCovarianceArrayStampedConstPtr obj_secondary,PoseWithCovarianceArrayStampedConstPtr obj_third, OdometryConstPtr pose,EstimatedStateConstPtr yaw");
         cv::Point3f predictPt = PredictUsingKalmanFilter();
@@ -617,8 +619,10 @@ public:
         offset_y = max_radius*std::sin(offset_angle);
         cv::Mat w;
         w = SensFuseThree::calculateFormation(state, master_pose, state_cov, cov_avg);
-        SensFuseThree::moveDrone(w);
-        
+        if (allow_sensing)
+        {
+            SensFuseThree::moveDrone(w);
+        }
         if (PRINT_OUT == 1)
         {
             ROS_INFO_STREAM("[WAYPOINT]:\nx: "<<w.at<float>(0)<<"\ny: "<<w.at<float>(1)<<"\nz: "<<w.at<float>(2)<<"\nyaw: "<<w.at<float>(3));
@@ -633,6 +637,12 @@ public:
     }
 };
 
+bool callback_trigger(Trigger::Request  &req, Trigger::Response &res)
+{
+    ROS_INFO("IT WORKS");
+    allow_sensing = true;
+    return true;
+}
 
 int main(int argc, char** argv)
 {
@@ -660,6 +670,12 @@ int main(int argc, char** argv)
 
     ros::init(argc, argv, node_name);
     ros::NodeHandle nh;
+    
+    std::string node_trigger = "";
+    node_trigger += argv[1];
+    node_trigger += "_trigger_formation";
+
+    ros::ServiceServer service = nh.advertiseService(node_trigger, callback_trigger);
     const char * first  = argv[1];
     const char * second = argv[2];
     const char * third  = argv[3];
