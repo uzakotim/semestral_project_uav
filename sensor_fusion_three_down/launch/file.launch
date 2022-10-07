@@ -1,0 +1,3 @@
+<launch>
+	<node name="motion" pkg="sensor_fusion_three_down" type="sf_three_down" args="$UAV_NAME1 $UAV_NAME3 0.0 3.0"/>
+</launch>
