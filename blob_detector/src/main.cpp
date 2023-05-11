@@ -153,7 +153,7 @@ public:
         object_pub         = nh.advertise<Odometry>(object_pub_topic, 1);
 
         //---Kalman Filter Parameters---->>----
-        KF.transitionMatrix = (cv::Mat_<float>(6,6) <<  1,0,0,1,0,0,
+        KF.transitionMatrix = (cv::Mat_<float>(6,6) <<   1,0,0,1,0,0,
                                                         0,1,0,0,1,0,
                                                         0,0,1,0,0,1,
                                                         0,0,0,1,0,0,
